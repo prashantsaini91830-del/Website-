@@ -3,87 +3,126 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>Login - Prashant Saini Portfolio</title>
+    <title>Secure Access | Prashant Saini Portfolio</title>
+    <link href="https://fonts.googleapis.com/css2?family=Outfit:wght@300;400;500;600;700&display=swap" rel="stylesheet">
     <style>
         * {
             margin: 0;
             padding: 0;
             box-sizing: border-box;
-            font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
+            font-family: 'Outfit', sans-serif;
         }
         body {
-            background: #0f172a;
+            background: #030712;
+            background-image: 
+                radial-gradient(circle at 10% 20%, rgba(56, 189, 248, 0.08) 0%, transparent 40%),
+                radial-gradient(circle at 90% 80%, rgba(99, 102, 241, 0.08) 0%, transparent 40%);
             display: flex;
             justify-content: center;
             align-items: center;
             height: 100vh;
-            color: #fff;
+            color: #f8fafc;
         }
         .login-card {
-            background: #1e293b;
-            padding: 30px;
-            border-radius: 12px;
-            box-shadow: 0 10px 25px rgba(0,0,0,0.3);
+            background: rgba(15, 23, 42, 0.75);
+            backdrop-filter: blur(16px);
+            -webkit-backdrop-filter: blur(16px);
+            border: 1px solid rgba(255, 255, 255, 0.08);
+            padding: 40px 32px;
+            border-radius: 20px;
+            box-shadow: 0 25px 50px -12px rgba(0, 0, 0, 0.7);
             width: 100%;
-            max-width: 380px;
+            max-width: 400px;
+            position: relative;
+            overflow: hidden;
         }
-        .login-card h2 {
+        .login-card::before {
+            content: '';
+            position: absolute;
+            top: 0;
+            left: 0;
+            right: 0;
+            height: 2px;
+            background: linear-gradient(90deg, transparent, #38bdf8, transparent);
+        }
+        .login-header {
             text-align: center;
-            margin-bottom: 24px;
-            color: #38bdf8;
+            margin-bottom: 30px;
+        }
+        .login-header h2 {
+            font-size: 26px;
+            font-weight: 600;
+            color: #f8fafc;
+            letter-spacing: -0.5px;
+            margin-bottom: 8px;
+        }
+        .login-header p {
+            font-size: 14px;
+            color: #94a3b8;
         }
         .input-group {
-            margin-bottom: 16px;
+            margin-bottom: 20px;
         }
         .input-group label {
             display: block;
-            margin-bottom: 6px;
-            font-size: 14px;
+            margin-bottom: 8px;
+            font-size: 13px;
+            font-weight: 500;
             color: #cbd5e1;
+            letter-spacing: 0.3px;
         }
         .input-group input {
             width: 100%;
-            padding: 12px;
-            background: #0f172a;
-            border: 1px solid #334155;
-            border-radius: 6px;
+            padding: 14px 16px;
+            background: rgba(30, 41, 59, 0.5);
+            border: 1px solid rgba(51, 65, 85, 0.8);
+            border-radius: 10px;
             color: #fff;
-            font-size: 14px;
+            font-size: 15px;
+            transition: all 0.3s ease;
         }
         .input-group input:focus {
             outline: none;
             border-color: #38bdf8;
+            background: rgba(30, 41, 59, 0.8);
+            box-shadow: 0 0 0 4px rgba(56, 189, 248, 0.15);
         }
         .login-btn {
             width: 100%;
-            padding: 12px;
-            background: #38bdf8;
+            padding: 14px;
+            background: linear-gradient(135deg, #38bdf8 0%, #0284c7 100%);
             border: none;
-            border-radius: 6px;
-            color: #0f172a;
-            font-weight: bold;
-            font-size: 16px;
+            border-radius: 10px;
+            color: #030712;
+            font-weight: 600;
+            font-size: 15px;
             cursor: pointer;
             margin-top: 10px;
-            transition: background 0.3s;
+            transition: all 0.3s ease;
+            box-shadow: 0 4px 12px rgba(56, 189, 248, 0.25);
         }
         .login-btn:hover {
-            background: #0ea5e9;
+            opacity: 0.95;
+            transform: translateY(-1px);
+            box-shadow: 0 6px 20px rgba(56, 189, 248, 0.4);
         }
         .error-msg {
             color: #f87171;
             font-size: 13px;
             text-align: center;
-            margin-top: 10px;
+            margin-top: 14px;
+            word-break: break-word;
+            font-weight: 500;
         }
         .back-link {
             text-align: center;
-            margin-top: 16px;
+            margin-top: 24px;
         }
         .back-link a {
-            color: #94a3b8;
+            color: #64748b;
             text-decoration: none;
             font-size: 13px;
+            transition: color 0.2s;
         }
         .back-link a:hover {
             color: #38bdf8;
@@ -93,21 +132,24 @@
 <body>
 
     <div class="login-card">
-        <h2>Developer Login</h2>
+        <div class="login-header">
+            <h2>Welcome Back</h2>
+            <p>Enter your credentials to access dashboard</p>
+        </div>
         <form id="loginForm">
             <div class="input-group">
                 <label>Email Address</label>
-                <input type="email" id="email" placeholder="apna@email.com" required>
+                <input type="email" id="email" placeholder="name@example.com" required>
             </div>
             <div class="input-group">
                 <label>Password</label>
                 <input type="password" id="password" placeholder="••••••••" required>
             </div>
-            <button type="submit" class="login-btn">Login</button>
+            <button type="submit" class="login-btn">Sign In</button>
             <p id="errorMsg" class="error-msg"></p>
         </form>
         <div class="back-link">
-            <a href="index.html">&larr; Back to Portfolio</a>
+            <a href="index.html">&larr; Return to Portfolio</a>
         </div>
     </div>
 
@@ -116,14 +158,14 @@
         import { initializeApp } from "https://www.gstatic.com/firebasejs/10.8.0/firebase-app.js";
         import { getAuth, signInWithEmailAndPassword } from "https://www.gstatic.com/firebasejs/10.8.0/firebase-auth.js";
 
-        // Aapke Firebase Project ki details[span_4](start_span)[span_4](end_span)
         const firebaseConfig = {
-            apiKey: "AIzaSyDThwCujJRiCdMdzXb8r9mtxt6oI",
-            authDomain: "prashant-website-1aa08.firebaseapp.com",
-            projectId: "prashant-website-1aa08",
-            storageBucket: "prashant-website-1aa08.appspot.com",
-            messagingSenderId: "735794708463",
-            appId: "1:735794708463:web:a47db52f59b2cf5"
+            apiKey: "AIzaSyABw8eTGABOvIyBZ8O0-Onz9VwVUGU8JLw",
+            authDomain: "prashant-saini-b7ff4.firebaseapp.com",
+            projectId: "prashant-saini-b7ff4",
+            storageBucket: "prashant-saini-b7ff4.firebasestorage.app",
+            messagingSenderId: "810292668776",
+            appId: "1:810292668776:web:447a0998183b669bdacedd",
+            measurementId: "G-7TRVX3DTV7"
         };
 
         const app = initializeApp(firebaseConfig);
@@ -134,16 +176,21 @@
 
         loginForm.addEventListener('submit', async (e) => {
             e.preventDefault();
-            const email = document.getElementById('email').value;
-            const password = document.getElementById('password').value;
-            errorMsg.textContent = "Logging in...";
+            const email = document.getElementById('email').value.trim();
+            const password = document.getElementById('password').value.trim();
+            errorMsg.style.color = "#38bdf8";
+            errorMsg.textContent = "Authenticating...";
 
             try {
                 await signInWithEmailAndPassword(auth, email, password);
-                alert("Login Successful!");
-                window.location.href = "index.html";
+                errorMsg.style.color = "#4ade80";
+                errorMsg.textContent = "Success! Redirecting...";
+                setTimeout(() => {
+                    window.location.href = "index.html";
+                }, 1000);
             } catch (error) {
-                errorMsg.textContent = "Invalid Email or Password!";
+                errorMsg.style.color = "#f87171";
+                errorMsg.textContent = error.code ? error.code.replace('auth/', 'Error: ') : error.message;
             }
         });
     </script>
