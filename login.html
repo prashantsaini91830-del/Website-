@@ -1,0 +1,208 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Secure Access | Prashant Saini Portfolio</title>
+    <link href="https://fonts.googleapis.com/css2?family=Outfit:wght@300;400;500;600;700&display=swap" rel="stylesheet">
+    <style>
+        * {
+            margin: 0;
+            padding: 0;
+            box-sizing: border-box;
+            font-family: 'Outfit', sans-serif;
+        }
+        body {
+            background: #030712;
+            display: flex;
+            justify-content: center;
+            align-items: center;
+            height: 100vh;
+            color: #f8fafc;
+            overflow: hidden;
+        }
+        
+        /* Instagram Style Animated Gradient Border Wrapper */
+        .card-wrapper {
+            position: relative;
+            width: 100%;
+            max-width: 400px;
+            border-radius: 22px;
+            padding: 3px;
+            background: linear-gradient(60deg, #f09433, #e6683c, #dc2743, #cc2366, #bc1888, #405de6, #5851db, #833ab4);
+            background-size: 300% 300%;
+            animation: instaBorderRotate 6s ease infinite;
+            box-shadow: 0 20px 40px rgba(0, 0, 0, 0.6);
+        }
+
+        @keyframes instaBorderRotate {
+            0% { background-position: 0% 50%; }
+            50% { background-position: 100% 50%; }
+            100% { background-position: 0% 50%; }
+        }
+
+        .login-card {
+            background: #0f172a;
+            padding: 40px 32px;
+            border-radius: 20px;
+            width: 100%;
+        }
+
+        .login-header {
+            text-align: center;
+            margin-bottom: 30px;
+        }
+        .login-header h2 {
+            font-size: 26px;
+            font-weight: 600;
+            color: #f8fafc;
+            letter-spacing: -0.5px;
+            margin-bottom: 8px;
+        }
+        .login-header p {
+            font-size: 14px;
+            color: #94a3b8;
+        }
+        .input-group {
+            margin-bottom: 20px;
+        }
+        .input-group label {
+            display: block;
+            margin-bottom: 8px;
+            font-size: 13px;
+            font-weight: 500;
+            color: #cbd5e1;
+            letter-spacing: 0.3px;
+        }
+        .input-group input {
+            width: 100%;
+            padding: 14px 16px;
+            background: rgba(30, 41, 59, 0.6);
+            border: 1px solid rgba(51, 65, 85, 0.8);
+            border-radius: 10px;
+            color: #fff;
+            font-size: 15px;
+            transition: all 0.3s ease;
+        }
+        .input-group input:focus {
+            outline: none;
+            border-color: #f09433;
+            background: rgba(30, 41, 59, 0.9);
+            box-shadow: 0 0 0 4px rgba(240, 148, 51, 0.15);
+        }
+        .login-btn {
+            width: 100%;
+            padding: 14px;
+            background: linear-gradient(135deg, #f09433 0%, #bc1888 50%, #405de6 100%);
+            background-size: 200% auto;
+            border: none;
+            border-radius: 10px;
+            color: #fff;
+            font-weight: 600;
+            font-size: 15px;
+            cursor: pointer;
+            margin-top: 10px;
+            transition: 0.4s ease;
+            box-shadow: 0 4px 15px rgba(188, 24, 136, 0.3);
+        }
+        .login-btn:hover {
+            background-position: right center;
+            transform: translateY(-1px);
+            box-shadow: 0 6px 20px rgba(188, 24, 136, 0.5);
+        }
+        .error-msg {
+            color: #f87171;
+            font-size: 13px;
+            text-align: center;
+            margin-top: 14px;
+            word-break: break-word;
+            font-weight: 500;
+        }
+        .back-link {
+            text-align: center;
+            margin-top: 24px;
+            font-size: 13px;
+            color: #64748b;
+        }
+        .back-link a {
+            color: #38bdf8;
+            text-decoration: none;
+            font-size: 13px;
+            transition: color 0.2s;
+        }
+        .back-link a:hover {
+            color: #f09433;
+        }
+    </style>
+</head>
+<body>
+
+    <div class="card-wrapper">
+        <div class="login-card">
+            <div class="login-header">
+                <h2>Welcome Back</h2>
+                <p>Enter your credentials to access dashboard</p>
+            </div>
+            <form id="loginForm">
+                <div class="input-group">
+                    <label>Email Address</label>
+                    <input type="email" id="email" placeholder="name@example.com" required>
+                </div>
+                <div class="input-group">
+                    <label>Password</label>
+                    <input type="password" id="password" placeholder="••••••••" required>
+                </div>
+                <button type="submit" class="login-btn">Sign In</button>
+                <p id="errorMsg" class="error-msg"></p>
+            </form>
+            <div class="back-link">
+                Don't have an account? <a href="signup.html">Sign Up</a><br><br>
+                <a href="index.html">&larr; Return to Portfolio</a>
+            </div>
+        </div>
+    </div>
+
+    <!-- Firebase SDK Scripts -->
+    <script type="module">
+        import { initializeApp } from "https://www.gstatic.com/firebasejs/10.8.0/firebase-app.js";
+        import { getAuth, signInWithEmailAndPassword } from "https://www.gstatic.com/firebasejs/10.8.0/firebase-auth.js";
+
+        const firebaseConfig = {
+            apiKey: "AIzaSyABw8eTGABOvIyBZ8O0-Onz9VwVUGU8JLw",
+            authDomain: "prashant-saini-b7ff4.firebaseapp.com",
+            projectId: "prashant-saini-b7ff4",
+            storageBucket: "prashant-saini-b7ff4.firebasestorage.app",
+            messagingSenderId: "810292668776",
+            appId: "1:810292668776:web:447a0998183b669bdacedd",
+            measurementId: "G-7TRVX3DTV7"
+        };
+
+        const app = initializeApp(firebaseConfig);
+        const auth = getAuth(app);
+
+        const loginForm = document.getElementById('loginForm');
+        const errorMsg = document.getElementById('errorMsg');
+
+        loginForm.addEventListener('submit', async (e) => {
+            e.preventDefault();
+            const email = document.getElementById('email').value.trim();
+            const password = document.getElementById('password').value.trim();
+            errorMsg.style.color = "#38bdf8";
+            errorMsg.textContent = "Authenticating...";
+
+            try {
+                await signInWithEmailAndPassword(auth, email, password);
+                errorMsg.style.color = "#4ade80";
+                errorMsg.textContent = "Success! Redirecting...";
+                setTimeout(() => {
+                    window.location.href = "index.html";
+                }, 1000);
+            } catch (error) {
+                errorMsg.style.color = "#f87171";
+                errorMsg.textContent = error.code ? error.code.replace('auth/', 'Error: ') : error.message;
+            }
+        });
+    </script>
+
+</body>
+</html>
