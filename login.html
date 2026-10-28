@@ -3,7 +3,7 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>Secure Access | Prashant Saini Portfolio</title>
+    <title>Login / Sign Up | Prashant Saini Portfolio</title>
     <link href="https://fonts.googleapis.com/css2?family=Outfit:wght@300;400;500;600;700&display=swap" rel="stylesheet">
     <style>
         * {
@@ -14,173 +14,154 @@
         }
         body {
             background: #030712;
-            display: flex;
-            justify-content: center;
-            align-items: center;
-            height: 100vh;
             color: #f8fafc;
-            overflow: hidden;
+            min-height: 100vh;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            padding: 20px;
         }
-        
-        /* Instagram Style Animated Gradient Border Wrapper */
-        .card-wrapper {
-            position: relative;
-            width: 100%;
-            max-width: 400px;
-            border-radius: 22px;
-            padding: 3px;
-            background: linear-gradient(60deg, #f09433, #e6683c, #dc2743, #cc2366, #bc1888, #405de6, #5851db, #833ab4);
-            background-size: 300% 300%;
-            animation: instaBorderRotate 6s ease infinite;
-            box-shadow: 0 20px 40px rgba(0, 0, 0, 0.6);
-        }
-
-        @keyframes instaBorderRotate {
-            0% { background-position: 0% 50%; }
-            50% { background-position: 100% 50%; }
-            100% { background-position: 0% 50%; }
-        }
-
-        .login-card {
+        .auth-card {
             background: #0f172a;
-            padding: 40px 32px;
+            border: 1px solid rgba(51, 65, 85, 0.8);
             border-radius: 20px;
+            padding: 40px;
+            max-width: 420px;
             width: 100%;
+            box-shadow: 0 20px 40px rgba(0, 0, 0, 0.5);
         }
-
-        .login-header {
+        .auth-header {
             text-align: center;
             margin-bottom: 30px;
         }
-        .login-header h2 {
+        .auth-header h1 {
             font-size: 26px;
-            font-weight: 600;
-            color: #f8fafc;
-            letter-spacing: -0.5px;
+            font-weight: 700;
             margin-bottom: 8px;
+            background: linear-gradient(135deg, #f09433 0%, #bc1888 100%);
+            -webkit-background-clip: text;
+            -webkit-text-fill-color: transparent;
         }
-        .login-header p {
-            font-size: 14px;
+        .auth-header p {
             color: #94a3b8;
+            font-size: 14px;
         }
-        .input-group {
-            margin-bottom: 16px;
+        .form-group {
+            margin-bottom: 20px;
         }
-        .input-group label {
+        label {
             display: block;
             margin-bottom: 8px;
             font-size: 13px;
             font-weight: 500;
             color: #cbd5e1;
-            letter-spacing: 0.3px;
         }
-        .input-group input {
+        input {
             width: 100%;
-            padding: 14px 16px;
-            background: rgba(30, 41, 59, 0.6);
-            border: 1px solid rgba(51, 65, 85, 0.8);
+            padding: 12px 16px;
+            background: #1e293b;
+            border: 1px solid #334155;
             border-radius: 10px;
             color: #fff;
-            font-size: 15px;
-            transition: all 0.3s ease;
-        }
-        .input-group input:focus {
+            font-size: 14px;
             outline: none;
-            border-color: #f09433;
-            background: rgba(30, 41, 59, 0.9);
-            box-shadow: 0 0 0 4px rgba(240, 148, 51, 0.15);
+            transition: border-color 0.3s ease;
         }
-        .forgot-section {
-            text-align: right;
-            margin-bottom: 20px;
+        input:focus {
+            border-color: #38bdf8;
         }
-        .forgot-section a {
-            font-size: 13px;
+        .forgot-link {
+            display: inline-block;
+            margin-top: 6px;
+            font-size: 12px;
             color: #38bdf8;
             text-decoration: none;
-            transition: color 0.2s;
+            cursor: pointer;
         }
-        .forgot-section a:hover {
-            color: #f09433;
+        .forgot-link:hover {
+            text-decoration: underline;
         }
-        .login-btn {
+        .btn-submit {
             width: 100%;
             padding: 14px;
-            background: linear-gradient(135deg, #f09433 0%, #bc1888 50%, #405de6 100%);
-            background-size: 200% auto;
+            background: linear-gradient(135deg, #f09433 0%, #bc1888 100%);
             border: none;
             border-radius: 10px;
             color: #fff;
             font-weight: 600;
             font-size: 15px;
             cursor: pointer;
-            transition: 0.4s ease;
-            box-shadow: 0 4px 15px rgba(188, 24, 136, 0.3);
+            transition: opacity 0.3s ease, transform 0.2s ease;
+            margin-top: 10px;
         }
-        .login-btn:hover {
-            background-position: right center;
+        .btn-submit:hover {
+            opacity: 0.95;
             transform: translateY(-1px);
-            box-shadow: 0 6px 20px rgba(188, 24, 136, 0.5);
+        }
+        .toggle-text {
+            text-align: center;
+            margin-top: 20px;
+            font-size: 13px;
+            color: #94a3b8;
+        }
+        .toggle-text a {
+            color: #38bdf8;
+            text-decoration: none;
+            font-weight: 600;
+            cursor: pointer;
         }
         .error-msg {
             color: #f87171;
             font-size: 13px;
+            margin-top: 15px;
             text-align: center;
-            margin-top: 14px;
-            word-break: break-word;
-            font-weight: 500;
-        }
-        .back-link {
-            text-align: center;
-            margin-top: 24px;
-            font-size: 13px;
-            color: #64748b;
-        }
-        .back-link a {
-            color: #38bdf8;
-            text-decoration: none;
-            font-size: 13px;
-            transition: color 0.2s;
-        }
-        .back-link a:hover {
-            color: #f09433;
+            min-height: 18px;
         }
     </style>
 </head>
 <body>
 
-    <div class="card-wrapper">
-        <div class="login-card">
-            <div class="login-header">
-                <h2>Welcome Back</h2>
-                <p>Enter your credentials to access dashboard</p>
+    <div class="auth-card">
+        <div class="auth-header">
+            <h1 id="formTitle">Welcome Back</h1>
+            <p id="formSubtitle">Sign in to access study materials & dashboard</p>
+        </div>
+
+        <form id="authForm">
+            <div class="form-group">
+                <label for="email">Email Address</label>
+                <input type="email" id="email" placeholder="name@example.com" required>
             </div>
-            <form id="loginForm">
-                <div class="input-group">
-                    <label>Email Address</label>
-                    <input type="email" id="email" placeholder="name@example.com" required>
-                </div>
-                <div class="input-group">
-                    <label>Password</label>
-                    <input type="password" id="password" placeholder="••••••••" required>
-                </div>
-                <div class="forgot-section">
-                    <a href="#" id="forgotBtn">Forgot Password?</a>
-                </div>
-                <button type="submit" class="login-btn">Sign In</button>
-                <p id="errorMsg" class="error-msg"></p>
-            </form>
-            <div class="back-link">
-                Don't have an account? <a href="signup.html">Sign Up</a><br><br>
-                <a href="index.html">&larr; Return to Portfolio</a>
+
+            <div class="form-group">
+                <label for="password">Password</label>
+                <input type="password" id="password" placeholder="••••••••" required>
+                <a id="forgotBtn" class="forgot-link">Forgot Password?</a>
             </div>
+
+            <button type="submit" id="submitBtn" class="btn-submit">Sign In</button>
+        </form>
+
+        <div id="errorMsg" class="error-msg"></div>
+
+        <div class="toggle-text">
+            <span id="toggleQuestion">Don't have an account?</span>
+            <a id="toggleAuthMode">Sign Up</a>
         </div>
     </div>
 
-    <!-- Firebase SDK Scripts -->
+    <!-- Firebase Modular SDK -->
     <script type="module">
         import { initializeApp } from "https://www.gstatic.com/firebasejs/10.8.0/firebase-app.js";
-        import { getAuth, signInWithEmailAndPassword, sendPasswordResetEmail } from "https://www.gstatic.com/firebasejs/10.8.0/firebase-auth.js";
+        import { 
+            getAuth, 
+            signInWithEmailAndPassword, 
+            createUserWithEmailAndPassword, 
+            setPersistence, 
+            browserLocalPersistence, 
+            onAuthStateChanged,
+            sendPasswordResetEmail 
+        } from "https://www.gstatic.com/firebasejs/10.8.0/firebase-auth.js";
 
         const firebaseConfig = {
             apiKey: "AIzaSyABw8eTGABOvIyBZ8O0-Onz9VwVUGU8JLw",
@@ -195,55 +176,104 @@
         const app = initializeApp(firebaseConfig);
         const auth = getAuth(app);
 
-        const loginForm = document.getElementById('loginForm');
-        const errorMsg = document.getElementById('errorMsg');
-        const forgotBtn = document.getElementById('forgotBtn');
+        // Persistent Auth: Browser local storage me session save rakho
+        setPersistence(auth, browserLocalPersistence).catch((error) => {
+            console.error("Persistence error:", error);
+        });
 
-        // Login Logic
-        loginForm.addEventListener('submit', async (e) => {
+        let isLoginMode = true;
+
+        const authForm = document.getElementById('authForm');
+        const emailInput = document.getElementById('email');
+        const passwordInput = document.getElementById('password');
+        const formTitle = document.getElementById('formTitle');
+        const formSubtitle = document.getElementById('formSubtitle');
+        const submitBtn = document.getElementById('submitBtn');
+        const toggleAuthMode = document.getElementById('toggleAuthMode');
+        const toggleQuestion = document.getElementById('toggleQuestion');
+        const forgotBtn = document.getElementById('forgotBtn');
+        const errorMsg = document.getElementById('errorMsg');
+
+        // Check if user is already logged in -> auto-redirect to dashboard
+        onAuthStateChanged(auth, (user) => {
+            if (user) {
+                window.location.href = "dashboard.html";
+            }
+        });
+
+        // Toggle Login / Signup Mode
+        toggleAuthMode.addEventListener('click', () => {
+            isLoginMode = !isLoginMode;
+            errorMsg.textContent = "";
+
+            if (isLoginMode) {
+                formTitle.textContent = "Welcome Back";
+                formSubtitle.textContent = "Sign in to access study materials & dashboard";
+                submitBtn.textContent = "Sign In";
+                toggleQuestion.textContent = "Don't have an account?";
+                toggleAuthMode.textContent = "Sign Up";
+                forgotBtn.style.display = "inline-block";
+            } else {
+                formTitle.textContent = "Create Account";
+                formSubtitle.textContent = "Register to view portal resources";
+                submitBtn.textContent = "Sign Up";
+                toggleQuestion.textContent = "Already have an account?";
+                toggleAuthMode.textContent = "Sign In";
+                forgotBtn.style.display = "none";
+            }
+        });
+
+        // Handle Form Submission (Login / Register)
+        authForm.addEventListener('submit', async (e) => {
             e.preventDefault();
-            const email = document.getElementById('email').value.trim();
-            const password = document.getElementById('password').value.trim();
+            const email = emailInput.value.trim();
+            const password = passwordInput.value.trim();
             errorMsg.style.color = "#38bdf8";
-            errorMsg.textContent = "Authenticating...";
+            errorMsg.textContent = "Processing...";
 
             try {
-                await signInWithEmailAndPassword(auth, email, password);
-                errorMsg.style.color = "#4ade80";
-                errorMsg.textContent = "Success! Redirecting...";
-                setTimeout(() => {
-                    window.location.href = "index.html";
-                }, 1000);
+                if (isLoginMode) {
+                    await signInWithEmailAndPassword(auth, email, password);
+                    errorMsg.style.color = "#4ade80";
+                    errorMsg.textContent = "Success! Redirecting...";
+                    setTimeout(() => {
+                        window.location.href = "dashboard.html";
+                    }, 800);
+                } else {
+                    await createUserWithEmailAndPassword(auth, email, password);
+                    errorMsg.style.color = "#4ade80";
+                    errorMsg.textContent = "Account created successfully! Redirecting...";
+                    setTimeout(() => {
+                        window.location.href = "dashboard.html";
+                    }, 800);
+                }
             } catch (error) {
                 errorMsg.style.color = "#f87171";
                 errorMsg.textContent = error.code ? error.code.replace('auth/', 'Error: ') : error.message;
             }
         });
 
-        // Forgot Password Logic
-        forgotBtn.addEventListener('click', async (e) => {
-            e.preventDefault();
-            const email = document.getElementById('email').value.trim();
-
+        // Handle Forgot Password
+        forgotBtn.addEventListener('click', async () => {
+            const email = emailInput.value.trim();
             if (!email) {
                 errorMsg.style.color = "#f87171";
-                errorMsg.textContent = "Please enter your email above first!";
+                errorMsg.textContent = "Please enter your email address first.";
                 return;
             }
 
             errorMsg.style.color = "#38bdf8";
-            errorMsg.textContent = "Sending reset link...";
+            errorMsg.textContent = "Sending password reset link...";
 
             try {
                 await sendPasswordResetEmail(auth, email);
                 errorMsg.style.color = "#4ade80";
-                errorMsg.textContent = "Password reset link sent to your email!";
+                errorMsg.textContent = "Password reset link sent! Check your inbox/spam folder.";
             } catch (error) {
                 errorMsg.style.color = "#f87171";
                 errorMsg.textContent = error.code ? error.code.replace('auth/', 'Error: ') : error.message;
             }
         });
     </script>
-
 </body>
 </html>
