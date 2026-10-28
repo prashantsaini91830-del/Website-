@@ -64,7 +64,7 @@
             color: #94a3b8;
         }
         .input-group {
-            margin-bottom: 20px;
+            margin-bottom: 16px;
         }
         .input-group label {
             display: block;
@@ -90,6 +90,19 @@
             background: rgba(30, 41, 59, 0.9);
             box-shadow: 0 0 0 4px rgba(240, 148, 51, 0.15);
         }
+        .forgot-section {
+            text-align: right;
+            margin-bottom: 20px;
+        }
+        .forgot-section a {
+            font-size: 13px;
+            color: #38bdf8;
+            text-decoration: none;
+            transition: color 0.2s;
+        }
+        .forgot-section a:hover {
+            color: #f09433;
+        }
         .login-btn {
             width: 100%;
             padding: 14px;
@@ -101,7 +114,6 @@
             font-weight: 600;
             font-size: 15px;
             cursor: pointer;
-            margin-top: 10px;
             transition: 0.4s ease;
             box-shadow: 0 4px 15px rgba(188, 24, 136, 0.3);
         }
@@ -152,6 +164,9 @@
                     <label>Password</label>
                     <input type="password" id="password" placeholder="••••••••" required>
                 </div>
+                <div class="forgot-section">
+                    <a href="#" id="forgotBtn">Forgot Password?</a>
+                </div>
                 <button type="submit" class="login-btn">Sign In</button>
                 <p id="errorMsg" class="error-msg"></p>
             </form>
@@ -165,7 +180,7 @@
     <!-- Firebase SDK Scripts -->
     <script type="module">
         import { initializeApp } from "https://www.gstatic.com/firebasejs/10.8.0/firebase-app.js";
-        import { getAuth, signInWithEmailAndPassword } from "https://www.gstatic.com/firebasejs/10.8.0/firebase-auth.js";
+        import { getAuth, signInWithEmailAndPassword, sendPasswordResetEmail } from "https://www.gstatic.com/firebasejs/10.8.0/firebase-auth.js";
 
         const firebaseConfig = {
             apiKey: "AIzaSyABw8eTGABOvIyBZ8O0-Onz9VwVUGU8JLw",
@@ -182,7 +197,9 @@
 
         const loginForm = document.getElementById('loginForm');
         const errorMsg = document.getElementById('errorMsg');
+        const forgotBtn = document.getElementById('forgotBtn');
 
+        // Login Logic
         loginForm.addEventListener('submit', async (e) => {
             e.preventDefault();
             const email = document.getElementById('email').value.trim();
@@ -197,6 +214,30 @@
                 setTimeout(() => {
                     window.location.href = "index.html";
                 }, 1000);
+            } catch (error) {
+                errorMsg.style.color = "#f87171";
+                errorMsg.textContent = error.code ? error.code.replace('auth/', 'Error: ') : error.message;
+            }
+        });
+
+        // Forgot Password Logic
+        forgotBtn.addEventListener('click', async (e) => {
+            e.preventDefault();
+            const email = document.getElementById('email').value.trim();
+
+            if (!email) {
+                errorMsg.style.color = "#f87171";
+                errorMsg.textContent = "Please enter your email above first!";
+                return;
+            }
+
+            errorMsg.style.color = "#38bdf8";
+            errorMsg.textContent = "Sending reset link...";
+
+            try {
+                await sendPasswordResetEmail(auth, email);
+                errorMsg.style.color = "#4ade80";
+                errorMsg.textContent = "Password reset link sent to your email!";
             } catch (error) {
                 errorMsg.style.color = "#f87171";
                 errorMsg.textContent = error.code ? error.code.replace('auth/', 'Error: ') : error.message;
