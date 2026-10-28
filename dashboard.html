@@ -3,7 +3,7 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>Dashboard | Prashant Saini Portfolio</title>
+    <title>Dashboard | Educational Portal</title>
     <link href="https://fonts.googleapis.com/css2?family=Outfit:wght@300;400;500;600;700&display=swap" rel="stylesheet">
     <style>
         * {
@@ -22,7 +22,7 @@
             padding: 40px 20px;
         }
         .dashboard-container {
-            max-width: 800px;
+            max-width: 900px;
             width: 100%;
         }
         .dashboard-card {
@@ -83,35 +83,43 @@
             color: #fff;
         }
 
-        /* Study Material Section */
-        .study-section {
+        /* Content Sections */
+        .content-section {
             background: #0f172a;
             border: 1px solid rgba(51, 65, 85, 0.8);
             border-radius: 20px;
             padding: 30px;
+            margin-bottom: 30px;
             box-shadow: 0 20px 40px rgba(0, 0, 0, 0.5);
         }
-        .study-section h2 {
+        .content-section h2 {
             font-size: 20px;
-            margin-bottom: 15px;
+            margin-bottom: 10px;
             color: #f8fafc;
             display: flex;
             align-items: center;
             gap: 10px;
         }
+        .content-section p {
+            color: #94a3b8;
+            font-size: 13px;
+            margin-bottom: 20px;
+        }
         .viewer-container {
             position: relative;
             width: 100%;
-            height: 500px;
+            height: 600px;
             background: #1e293b;
             border-radius: 12px;
             overflow: hidden;
             border: 1px solid #334155;
         }
-        iframe {
+        video {
             width: 100%;
-            height: 100%;
-            border: none;
+            max-height: 500px;
+            background: #000;
+            border-radius: 12px;
+            border: 1px solid #334155;
         }
     </style>
 </head>
@@ -130,19 +138,20 @@
             </div>
         </div>
 
-        <!-- Google Drive Study Material Section -->
-        <div class="study-section">
-            <h2>📚 Class Notes / Study Material</h2>
-            <p style="color: #94a3b8; font-size: 13px; margin-bottom: 20px;">Directly loaded from Google Drive securely.</p>
+        <!-- PDF Study Material Section -->
+        <div class="content-section">
+            <h2>📚 Chemical Coordination & Integration - NEET Notes</h2>
+            <p>Loaded directly from GitHub repository in high definition.</p>
             
             <div class="viewer-container">
-                <!-- Google Drive Embed Viewer Link -->
-                <iframe src="https://drive.google.com/file/d/1s1BJCmbEgt9LXfNjws2Z-b6qw1xxV3MG/preview" allow="autoplay"></iframe>
+                <object data="https://raw.githubusercontent.com/prashantsaini91830-del/Server/main/Chemical_Coordination_Complete_NEET_Master_removed%20(1).pdf" type="application/pdf" width="100%" height="100%">
+                    <p style="padding: 20px; text-align: center;">Your browser does not support embedded PDFs. <a href="https://raw.githubusercontent.com/prashantsaini91830-del/Server/main/Chemical_Coordination_Complete_NEET_Master_removed%20(1).pdf" target="_blank" style="color: #38bdf8;">Download PDF</a></p>
+                </object>
             </div>
         </div>
     </div>
 
-    <!-- Firebase SDK Scripts -->
+    <!-- Firebase Auth Protection SDK -->
     <script type="module">
         import { initializeApp } from "https://www.gstatic.com/firebasejs/10.8.0/firebase-app.js";
         import { getAuth, onAuthStateChanged, signOut } from "https://www.gstatic.com/firebasejs/10.8.0/firebase-auth.js";
@@ -163,7 +172,7 @@
         const userEmailSpan = document.getElementById('userEmail');
         const logoutBtn = document.getElementById('logoutBtn');
 
-        // Check user state (Protected Route)
+        // Check user session
         onAuthStateChanged(auth, (user) => {
             if (user) {
                 userEmailSpan.textContent = user.email;
