@@ -3,7 +3,7 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>Secure Access | Prashant Saini Portfolio</title>
+    <title>Create Account | Prashant Saini Portfolio</title>
     <link href="https://fonts.googleapis.com/css2?family=Outfit:wght@300;400;500;600;700&display=swap" rel="stylesheet">
     <style>
         * {
@@ -28,7 +28,7 @@
             width: 100%;
             max-width: 400px;
             border-radius: 22px;
-            padding: 3px; /* Border thickness */
+            padding: 3px;
             background: linear-gradient(60deg, #f09433, #e6683c, #dc2743, #cc2366, #bc1888, #405de6, #5851db, #833ab4);
             background-size: 300% 300%;
             animation: instaBorderRotate 6s ease infinite;
@@ -140,23 +140,23 @@
     <div class="card-wrapper">
         <div class="login-card">
             <div class="login-header">
-                <h2>Welcome Back</h2>
-                <p>Enter your credentials to access dashboard</p>
+                <h2>Create Account</h2>
+                <p>Sign up to get started</p>
             </div>
-            <form id="loginForm">
+            <form id="signupForm">
                 <div class="input-group">
                     <label>Email Address</label>
                     <input type="email" id="email" placeholder="name@example.com" required>
                 </div>
                 <div class="input-group">
-                    <label>Password</label>
+                    <label>Password (Min 6 chars)</label>
                     <input type="password" id="password" placeholder="••••••••" required>
                 </div>
-                <button type="submit" class="login-btn">Sign In</button>
+                <button type="submit" class="login-btn">Sign Up</button>
                 <p id="errorMsg" class="error-msg"></p>
             </form>
             <div class="back-link">
-                Don't have an account? <a href="signup.html">Sign Up</a><br><br>
+                Already have an account? <a href="login.html">Sign In</a><br><br>
                 <a href="index.html">&larr; Return to Portfolio</a>
             </div>
         </div>
@@ -165,7 +165,7 @@
     <!-- Firebase SDK Scripts -->
     <script type="module">
         import { initializeApp } from "https://www.gstatic.com/firebasejs/10.8.0/firebase-app.js";
-        import { getAuth, signInWithEmailAndPassword } from "https://www.gstatic.com/firebasejs/10.8.0/firebase-auth.js";
+        import { getAuth, createUserWithEmailAndPassword } from "https://www.gstatic.com/firebasejs/10.8.0/firebase-auth.js";
 
         const firebaseConfig = {
             apiKey: "AIzaSyABw8eTGABOvIyBZ8O0-Onz9VwVUGU8JLw",
@@ -180,20 +180,22 @@
         const app = initializeApp(firebaseConfig);
         const auth = getAuth(app);
 
-        const loginForm = document.getElementById('loginForm');
+        const signupForm = document.getElementById('signupForm');
         const errorMsg = document.getElementById('errorMsg');
 
-        loginForm.addEventListener('submit', async (e) => {
+        signupForm.addEventListener('submit', async (e) => {
             e.preventDefault();
-            const email = document.getElementById('email').value.trim();
+            const email = document.getElementById('email@trim' in String.prototype ? 'email' : 'email').value.trim();
             const password = document.getElementById('password').value.trim();
+            
             errorMsg.style.color = "#38bdf8";
-            errorMsg.textContent = "Authenticating...";
+            errorMsg.textContent = "Creating account...";
 
             try {
-                await signInWithEmailAndPassword(auth, email, password);
+                // Yeh function naye user ko Firebase mein register karega
+                await createUserWithEmailAndPassword(auth, email, password);
                 errorMsg.style.color = "#4ade80";
-                errorMsg.textContent = "Success! Redirecting...";
+                errorMsg.textContent = "Account created successfully! Redirecting...";
                 setTimeout(() => {
                     window.location.href = "index.html";
                 }, 1000);
