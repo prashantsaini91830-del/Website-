@@ -3,7 +3,7 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>Create Account | Prashant Saini Portfolio</title>
+    <title>Sign Up | Educational Portal</title>
     <link href="https://fonts.googleapis.com/css2?family=Outfit:wght@300;400;500;600;700&display=swap" rel="stylesheet">
     <style>
         * {
@@ -14,158 +14,175 @@
         }
         body {
             background: #030712;
+            color: #f8fafc;
+            min-height: 100vh;
             display: flex;
             justify-content: center;
             align-items: center;
-            height: 100vh;
-            color: #f8fafc;
-            overflow: hidden;
+            padding: 20px;
         }
-        
-        /* Instagram Style Animated Gradient Border Wrapper */
-        .card-wrapper {
-            position: relative;
-            width: 100%;
-            max-width: 400px;
-            border-radius: 22px;
-            padding: 3px;
-            background: linear-gradient(60deg, #f09433, #e6683c, #dc2743, #cc2366, #bc1888, #405de6, #5851db, #833ab4);
-            background-size: 300% 300%;
-            animation: instaBorderRotate 6s ease infinite;
-            box-shadow: 0 20px 40px rgba(0, 0, 0, 0.6);
-        }
-
-        @keyframes instaBorderRotate {
-            0% { background-position: 0% 50%; }
-            50% { background-position: 100% 50%; }
-            100% { background-position: 0% 50%; }
-        }
-
         .login-card {
             background: #0f172a;
-            padding: 40px 32px;
-            border-radius: 20px;
-            width: 100%;
-        }
-
-        .login-header {
-            text-align: center;
-            margin-bottom: 30px;
-        }
-        .login-header h2 {
-            font-size: 26px;
-            font-weight: 600;
-            color: #f8fafc;
-            letter-spacing: -0.5px;
-            margin-bottom: 8px;
-        }
-        .login-header p {
-            font-size: 14px;
-            color: #94a3b8;
-        }
-        .input-group {
-            margin-bottom: 20px;
-        }
-        .input-group label {
-            display: block;
-            margin-bottom: 8px;
-            font-size: 13px;
-            font-weight: 500;
-            color: #cbd5e1;
-            letter-spacing: 0.3px;
-        }
-        .input-group input {
-            width: 100%;
-            padding: 14px 16px;
-            background: rgba(30, 41, 59, 0.6);
             border: 1px solid rgba(51, 65, 85, 0.8);
+            border-radius: 20px;
+            padding: 40px 30px;
+            width: 100%;
+            max-width: 400px;
+            box-shadow: 0 20px 40px rgba(0, 0, 0, 0.5);
+            text-align: center;
+        }
+        .login-card h2 {
+            font-size: 24px;
+            margin-bottom: 8px;
+            font-weight: 700;
+        }
+        .login-card p {
+            color: #94a3b8;
+            font-size: 14px;
+            margin-bottom: 25px;
+        }
+        .form-group {
+            margin-bottom: 15px;
+            text-align: left;
+        }
+        .form-group label {
+            display: block;
+            font-size: 13px;
+            color: #cbd5e1;
+            margin-bottom: 6px;
+            font-weight: 500;
+        }
+        .form-group input {
+            width: 100%;
+            padding: 12px 15px;
+            background: #1e293b;
+            border: 1px solid #334155;
             border-radius: 10px;
             color: #fff;
-            font-size: 15px;
-            transition: all 0.3s ease;
-        }
-        .input-group input:focus {
+            font-size: 14px;
             outline: none;
-            border-color: #f09433;
-            background: rgba(30, 41, 59, 0.9);
-            box-shadow: 0 0 0 4px rgba(240, 148, 51, 0.15);
+            transition: border-color 0.3s;
         }
-        .login-btn {
+        .form-group input:focus {
+            border-color: #f09433;
+        }
+        .btn-submit {
             width: 100%;
-            padding: 14px;
-            background: linear-gradient(135deg, #f09433 0%, #bc1888 50%, #405de6 100%);
-            background-size: 200% auto;
+            padding: 12px;
+            background: linear-gradient(135deg, #f09433 0%, #bc1888 100%);
+            color: #fff;
             border: none;
             border-radius: 10px;
-            color: #fff;
-            font-weight: 600;
             font-size: 15px;
+            font-weight: 600;
             cursor: pointer;
             margin-top: 10px;
-            transition: 0.4s ease;
-            box-shadow: 0 4px 15px rgba(188, 24, 136, 0.3);
+            transition: all 0.3s ease;
         }
-        .login-btn:hover {
-            background-position: right center;
-            transform: translateY(-1px);
-            box-shadow: 0 6px 20px rgba(188, 24, 136, 0.5);
+        .btn-submit:hover {
+            opacity: 0.9;
+            transform: translateY(-2px);
+        }
+        .divider {
+            display: flex;
+            align-items: center;
+            text-align: center;
+            margin: 20px 0;
+            color: #64748b;
+            font-size: 12px;
+        }
+        .divider::before, .divider::after {
+            content: '';
+            flex: 1;
+            border-bottom: 1px solid #334155;
+        }
+        .divider span {
+            padding: 0 10px;
+        }
+        .btn-google {
+            width: 100%;
+            padding: 12px 20px;
+            background: #ffffff;
+            color: #1e293b;
+            border: none;
+            border-radius: 10px;
+            font-size: 14px;
+            font-weight: 600;
+            cursor: pointer;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            gap: 10px;
+            transition: all 0.3s ease;
+        }
+        .btn-google:hover {
+            background: #f1f5f9;
+            transform: translateY(-2px);
+        }
+        .btn-google img {
+            width: 18px;
+            height: 18px;
         }
         .error-msg {
             color: #f87171;
             font-size: 13px;
-            text-align: center;
-            margin-top: 14px;
-            word-break: break-word;
-            font-weight: 500;
+            margin-top: 10px;
+            display: none;
         }
-        .back-link {
-            text-align: center;
-            margin-top: 24px;
+        .switch-auth {
+            margin-top: 20px;
             font-size: 13px;
-            color: #64748b;
+            color: #94a3b8;
         }
-        .back-link a {
-            color: #38bdf8;
-            text-decoration: none;
-            font-size: 13px;
-            transition: color 0.2s;
-        }
-        .back-link a:hover {
+        .switch-auth a {
             color: #f09433;
+            text-decoration: none;
+            font-weight: 600;
+        }
+        .switch-auth a:hover {
+            text-decoration: underline;
         }
     </style>
 </head>
 <body>
 
-    <div class="card-wrapper">
-        <div class="login-card">
-            <div class="login-header">
-                <h2>Create Account</h2>
-                <p>Sign up to get started</p>
+    <div class="login-card">
+        <h2>Create Account</h2>
+        <p>Sign up to get access to study materials</p>
+
+        <!-- Signup Form -->
+        <form id="signupForm">
+            <div class="form-group">
+                <label>Email Address</label>
+                <input type="email" id="signupEmail" placeholder="name@example.com" required>
             </div>
-            <form id="signupForm">
-                <div class="input-group">
-                    <label>Email Address</label>
-                    <input type="email" id="email" placeholder="name@example.com" required>
-                </div>
-                <div class="input-group">
-                    <label>Password (Min 6 chars)</label>
-                    <input type="password" id="password" placeholder="••••••••" required>
-                </div>
-                <button type="submit" class="login-btn">Sign Up</button>
-                <p id="errorMsg" class="error-msg"></p>
-            </form>
-            <div class="back-link">
-                Already have an account? <a href="login.html">Sign In</a><br><br>
-                <a href="index.html">&larr; Return to Portfolio</a>
+            <div class="form-group">
+                <label>Password (Min 6 characters)</label>
+                <input type="password" id="signupPassword" placeholder="••••••••" required>
             </div>
+            <button type="submit" class="btn-submit">Sign Up</button>
+        </form>
+
+        <p id="errorMsg" class="error-msg"></p>
+
+        <div class="divider">
+            <span>OR</span>
+        </div>
+
+        <!-- Google Signup Button -->
+        <button id="googleSignupBtn" class="btn-google">
+            <img src="https://www.gstatic.com/firebasejs/ui/2.0.0/images/auth/google.svg" alt="Google Logo">
+            Continue with Google
+        </button>
+
+        <div class="switch-auth">
+            Already have an account? <a href="login.html">Sign In</a>
         </div>
     </div>
 
-    <!-- Firebase SDK Scripts -->
     <script type="module">
         import { initializeApp } from "https://www.gstatic.com/firebasejs/10.8.0/firebase-app.js";
-        import { getAuth, createUserWithEmailAndPassword } from "https://www.gstatic.com/firebasejs/10.8.0/firebase-auth.js";
+        import { getAuth, createUserWithEmailAndPassword, signInWithPopup, GoogleAuthProvider, onAuthStateChanged } from "https://www.gstatic.com/firebasejs/10.8.0/firebase-auth.js";
 
         const firebaseConfig = {
             apiKey: "AIzaSyABw8eTGABOvIyBZ8O0-Onz9VwVUGU8JLw",
@@ -179,32 +196,47 @@
 
         const app = initializeApp(firebaseConfig);
         const auth = getAuth(app);
+        const googleProvider = new GoogleAuthProvider();
 
         const signupForm = document.getElementById('signupForm');
+        const googleSignupBtn = document.getElementById('googleSignupBtn');
         const errorMsg = document.getElementById('errorMsg');
 
+        // Check if user is already logged in
+        onAuthStateChanged(auth, (user) => {
+            if (user) {
+                window.location.href = "dashboard.html";
+            }
+        });
+
+        // 1. Email & Password Signup
         signupForm.addEventListener('submit', async (e) => {
             e.preventDefault();
-            const email = document.getElementById('email@trim' in String.prototype ? 'email' : 'email').value.trim();
-            const password = document.getElementById('password').value.trim();
+            errorMsg.style.display = "none";
             
-            errorMsg.style.color = "#38bdf8";
-            errorMsg.textContent = "Creating account...";
+            const email = document.getElementById('signupEmail').value;
+            const password = document.getElementById('signupPassword').value;
 
             try {
-                // Yeh function naye user ko Firebase mein register karega
                 await createUserWithEmailAndPassword(auth, email, password);
-                errorMsg.style.color = "#4ade80";
-                errorMsg.textContent = "Account created successfully! Redirecting...";
-                setTimeout(() => {
-                    window.location.href = "index.html";
-                }, 1000);
+                window.location.href = "dashboard.html";
             } catch (error) {
-                errorMsg.style.color = "#f87171";
-                errorMsg.textContent = error.code ? error.code.replace('auth/', 'Error: ') : error.message;
+                errorMsg.textContent = "Signup Failed: " + error.message;
+                errorMsg.style.display = "block";
+            }
+        });
+
+        // 2. Google Signup / Login
+        googleSignupBtn.addEventListener('click', async () => {
+            errorMsg.style.display = "none";
+            try {
+                await signInWithPopup(auth, googleProvider);
+                window.location.href = "dashboard.html";
+            } catch (error) {
+                errorMsg.textContent = "Google Sign-Up Failed: " + error.message;
+                errorMsg.style.display = "block";
             }
         });
     </script>
-
 </body>
 </html>
