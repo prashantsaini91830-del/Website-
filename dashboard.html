@@ -1,0 +1,186 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Dashboard | Prashant Saini Portfolio</title>
+    <link href="https://fonts.googleapis.com/css2?family=Outfit:wght@300;400;500;600;700&display=swap" rel="stylesheet">
+    <style>
+        * {
+            margin: 0;
+            padding: 0;
+            box-sizing: border-box;
+            font-family: 'Outfit', sans-serif;
+        }
+        body {
+            background: #030712;
+            color: #f8fafc;
+            min-height: 100vh;
+            display: flex;
+            flex-direction: column;
+            align-items: center;
+            padding: 40px 20px;
+        }
+        .dashboard-container {
+            max-width: 800px;
+            width: 100%;
+        }
+        .dashboard-card {
+            background: #0f172a;
+            border: 1px solid rgba(51, 65, 85, 0.8);
+            border-radius: 20px;
+            padding: 30px;
+            margin-bottom: 30px;
+            box-shadow: 0 20px 40px rgba(0, 0, 0, 0.5);
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            flex-wrap: wrap;
+            gap: 15px;
+        }
+        .user-info h1 {
+            font-size: 24px;
+            margin-bottom: 5px;
+            font-weight: 600;
+        }
+        .user-info p {
+            color: #94a3b8;
+            font-size: 14px;
+        }
+        .user-email {
+            color: #f09433;
+            font-weight: 600;
+        }
+        .btn-group {
+            display: flex;
+            gap: 10px;
+        }
+        .btn {
+            padding: 10px 20px;
+            border-radius: 10px;
+            font-weight: 600;
+            font-size: 13px;
+            cursor: pointer;
+            text-decoration: none;
+            transition: all 0.3s ease;
+            border: none;
+        }
+        .btn-primary {
+            background: linear-gradient(135deg, #f09433 0%, #bc1888 100%);
+            color: #fff;
+        }
+        .btn-primary:hover {
+            opacity: 0.9;
+            transform: translateY(-2px);
+        }
+        .btn-outline {
+            background: transparent;
+            color: #cbd5e1;
+            border: 1px solid #334155;
+        }
+        .btn-outline:hover {
+            background: rgba(51, 65, 85, 0.5);
+            color: #fff;
+        }
+
+        /* Study Material Section */
+        .study-section {
+            background: #0f172a;
+            border: 1px solid rgba(51, 65, 85, 0.8);
+            border-radius: 20px;
+            padding: 30px;
+            box-shadow: 0 20px 40px rgba(0, 0, 0, 0.5);
+        }
+        .study-section h2 {
+            font-size: 20px;
+            margin-bottom: 15px;
+            color: #f8fafc;
+            display: flex;
+            align-items: center;
+            gap: 10px;
+        }
+        .viewer-container {
+            position: relative;
+            width: 100%;
+            height: 500px;
+            background: #1e293b;
+            border-radius: 12px;
+            overflow: hidden;
+            border: 1px solid #334155;
+        }
+        iframe {
+            width: 100%;
+            height: 100%;
+            border: none;
+        }
+    </style>
+</head>
+<body>
+
+    <div class="dashboard-container">
+        <!-- Top Profile & Controls Card -->
+        <div class="dashboard-card">
+            <div class="user-info">
+                <h1>Welcome Back!</h1>
+                <p>Logged in as: <span id="userEmail" class="user-email">Loading...</span></p>
+            </div>
+            <div class="btn-group">
+                <a href="index.html" class="btn btn-outline">Portfolio</a>
+                <button id="logoutBtn" class="btn btn-primary">Logout</button>
+            </div>
+        </div>
+
+        <!-- Google Drive Study Material Section -->
+        <div class="study-section">
+            <h2>📚 Class Notes / Study Material</h2>
+            <p style="color: #94a3b8; font-size: 13px; margin-bottom: 20px;">Directly loaded from Google Drive securely.</p>
+            
+            <div class="viewer-container">
+                <!-- Google Drive Embed Viewer Link -->
+                <iframe src="https://drive.google.com/file/d/1s1BJCmbEgt9LXfNjws2Z-b6qw1xxV3MG/preview" allow="autoplay"></iframe>
+            </div>
+        </div>
+    </div>
+
+    <!-- Firebase SDK Scripts -->
+    <script type="module">
+        import { initializeApp } from "https://www.gstatic.com/firebasejs/10.8.0/firebase-app.js";
+        import { getAuth, onAuthStateChanged, signOut } from "https://www.gstatic.com/firebasejs/10.8.0/firebase-auth.js";
+
+        const firebaseConfig = {
+            apiKey: "AIzaSyABw8eTGABOvIyBZ8O0-Onz9VwVUGU8JLw",
+            authDomain: "prashant-saini-b7ff4.firebaseapp.com",
+            projectId: "prashant-saini-b7ff4",
+            storageBucket: "prashant-saini-b7ff4.firebasestorage.app",
+            messagingSenderId: "810292668776",
+            appId: "1:810292668776:web:447a0998183b669bdacedd",
+            measurementId: "G-7TRVX3DTV7"
+        };
+
+        const app = initializeApp(firebaseConfig);
+        const auth = getAuth(app);
+
+        const userEmailSpan = document.getElementById('userEmail');
+        const logoutBtn = document.getElementById('logoutBtn');
+
+        // Check user state (Protected Route)
+        onAuthStateChanged(auth, (user) => {
+            if (user) {
+                userEmailSpan.textContent = user.email;
+            } else {
+                window.location.href = "login.html";
+            }
+        });
+
+        // Logout action
+        logoutBtn.addEventListener('click', async () => {
+            try {
+                await signOut(auth);
+                window.location.href = "login.html";
+            } catch (error) {
+                alert("Error logging out: " + error.message);
+            }
+        });
+    </script>
+</body>
+</html>
