@@ -7,6 +7,7 @@ A static study-materials portal with Firebase Authentication. Students can sign 
 - Email/password sign up and sign in
 - Google sign-in
 - Password reset by email
+- Email OTP verification after sign up (EmailJS). Google sign-ins skip it
 - Protected dashboard with search and category filters
 - Left slide-out menu (three-line button) with Home, Dashboard, Reports, Settings, Privacy Policy, Terms of Use and Cookie preferences
 - Privacy and cookie consent popup shown on a first visit (policy acceptance required, analytics optional)
@@ -21,6 +22,7 @@ A static study-materials portal with Firebase Authentication. Students can sign 
 | `login.html` / `signup.html` | Authentication pages |
 | `dashboard.html` | Protected study-materials dashboard |
 | `auth.js` | Firebase setup and all auth logic |
+| `verify.html` | 6-digit OTP email verification (set the EmailJS Public Key at the top) |
 | `layout.js` | Shared left menu and consent popup |
 | `materials.js` | List of study materials (edit this) |
 | `reports.html` / `settings.html` | Reports and account settings |

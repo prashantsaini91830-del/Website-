@@ -226,3 +226,8 @@ body.light{--bg:#ffffff;--text:#0f0f0f;--muted:#5f5f66;--card:#f6f6f8;--border:#
 @media(max-width:860px){.doc .container.doc-wrap{grid-template-columns:1fr;gap:24px}.toc{position:static;flex-direction:row;flex-wrap:wrap;gap:8px}.toc b{width:100%;margin-bottom:2px}.toc a{border:1px solid var(--border);border-radius:999px;padding:6px 12px}.doc-hero{padding:44px 0 30px}}
 .toc a,.light .toc a{text-decoration:none}
 .drawer:not(.open){box-shadow:none}
+
+/* ---- OTP verify ---- */
+.otp-input{text-align:center;font-size:1.8rem !important;letter-spacing:.5em;padding-left:.5em !important;font-family:'Courier New',monospace !important;font-weight:700}
+.linkbtn{background:none;border:0;color:var(--gold2);font:inherit;font-weight:600;cursor:pointer;padding:0}
+.linkbtn:disabled{color:var(--muted);cursor:not-allowed;font-weight:500}
