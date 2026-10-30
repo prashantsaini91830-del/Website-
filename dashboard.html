@@ -19,12 +19,12 @@
 
 <main class="dash">
   <div class="container">
-    <h1>Namaste, <span class="gold" id="name">student</span> 👋</h1>
-    <p class="sub">Aaj kya padhna hai? Apna material chuno.</p>
+    <h1>Welcome, <span class="gold" id="name">student</span> 👋</h1>
+    <p class="sub">What would you like to study today? Pick your material below.</p>
     <div id="demo" class="msg"></div>
 
     <div class="toolbar">
-      <input id="search" type="search" placeholder="Search notes, papers, videos...">
+      <input id="search" type="search" placeholder="Search by title or subject, e.g. Calculus, Physics, DBMS...">
     </div>
     <div class="toolbar" style="margin-top:0" id="chips">
       <button class="chip on" data-f="all">All</button>
@@ -33,37 +33,43 @@
       <button class="chip" data-f="Video">Videos</button>
       <button class="chip" data-f="Test">Mock Tests</button>
     </div>
+    <p class="count" id="count"></p>
 
     <div id="list" class="grid g3"></div>
-    <div id="empty" class="empty" style="display:none">Koi result nahi mila.</div>
+    <div id="empty" class="empty" style="display:none">No results found. Try a different search term or filter.</div>
   </div>
 </main>
 
 <script type="module">
   import { protectPage, logout } from "./auth.js";
 
-  // Yahan apne asli materials add karo (link = PDF / Drive / YouTube URL)
+  // Add your real materials here. "link" can be a PDF, Google Drive or YouTube URL.
   const materials = [
     { t: "Calculus Complete Notes", s: "Mathematics", type: "Notes", icon: "📘", link: "#" },
     { t: "Algebra Formula Sheet", s: "Mathematics", type: "Notes", icon: "📘", link: "#" },
-    { t: "Maths PYQ 2020-2025", s: "Mathematics", type: "Papers", icon: "📝", link: "#" },
+    { t: "Maths Previous Year Papers 2020-2025", s: "Mathematics", type: "Papers", icon: "📝", link: "#" },
+    { t: "Probability and Statistics Lecture", s: "Mathematics", type: "Video", icon: "🎥", link: "#" },
+    { t: "Mathematics Mock Test 1", s: "Mathematics", type: "Test", icon: "🎯", link: "#" },
     { t: "Mechanics Concept Notes", s: "Physics", type: "Notes", icon: "📘", link: "#" },
     { t: "Optics Video Lecture", s: "Physics", type: "Video", icon: "🎥", link: "#" },
+    { t: "Physics Previous Year Papers", s: "Physics", type: "Papers", icon: "📝", link: "#" },
     { t: "Physics Mock Test 1", s: "Physics", type: "Test", icon: "🎯", link: "#" },
     { t: "Organic Chemistry Notes", s: "Chemistry", type: "Notes", icon: "📘", link: "#" },
-    { t: "Chemistry PYQ Solved", s: "Chemistry", type: "Papers", icon: "📝", link: "#" },
+    { t: "Chemistry Solved Previous Year Papers", s: "Chemistry", type: "Papers", icon: "📝", link: "#" },
+    { t: "Chemical Bonding Video Lecture", s: "Chemistry", type: "Video", icon: "🎥", link: "#" },
     { t: "Data Structures Lecture Series", s: "Computer Science", type: "Video", icon: "🎥", link: "#" },
-    { t: "DBMS Quick Revision", s: "Computer Science", type: "Notes", icon: "📘", link: "#" },
-    { t: "CS Mock Test 1", s: "Computer Science", type: "Test", icon: "🎯", link: "#" }
+    { t: "DBMS Quick Revision Notes", s: "Computer Science", type: "Notes", icon: "📘", link: "#" },
+    { t: "Operating Systems Previous Year Papers", s: "Computer Science", type: "Papers", icon: "📝", link: "#" },
+    { t: "Computer Science Mock Test 1", s: "Computer Science", type: "Test", icon: "🎯", link: "#" }
   ];
 
   let filter = "all", q = "";
-  const list = document.getElementById("list"), empty = document.getElementById("empty");
+  const list = document.getElementById("list"), empty = document.getElementById("empty"), count = document.getElementById("count");
 
   function render() {
     const rows = materials.filter(m =>
       (filter === "all" || m.type === filter) &&
-      (m.t + m.s).toLowerCase().includes(q.toLowerCase()));
+      (m.t + " " + m.s).toLowerCase().includes(q.trim().toLowerCase()));
     list.innerHTML = rows.map(m => `
       <a class="card" href="${m.link}" target="_blank" rel="noopener">
         <div class="ico">${m.icon}</div>
@@ -71,6 +77,7 @@
         <div class="mat"><small>${m.s}</small><span class="tag" style="margin:0">${m.type}</span></div>
       </a>`).join("");
     empty.style.display = rows.length ? "none" : "block";
+    count.textContent = rows.length + (rows.length === 1 ? " resource" : " resources") + " available";
   }
 
   document.getElementById("search").addEventListener("input", e => { q = e.target.value; render(); });
@@ -88,7 +95,7 @@
     if (demo) {
       const d = document.getElementById("demo");
       d.className = "msg ok";
-      d.textContent = "Demo mode: auth.js mein Firebase config daalte hi real login chalu ho jayega.";
+      d.textContent = "Demo mode: real login will start working as soon as you add your Firebase config in auth.js.";
     }
     render();
   });

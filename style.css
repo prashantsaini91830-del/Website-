@@ -99,3 +99,15 @@ footer .container{display:flex;justify-content:space-between;flex-wrap:wrap;gap:
 
 @media(max-width:900px){.g3,.g4,.stats{grid-template-columns:repeat(2,1fr)}.links{display:none}}
 @media(max-width:560px){.g3,.g4,.stats{grid-template-columns:1fr}.hero{padding-top:60px}.auth-card{padding:32px 22px}.nav-cta .btn-ghost{display:none}}
+
+/* extras: forgot link, FAQ, result count */
+.forgot{text-align:right;margin:-6px 0 16px;font-size:.85rem}
+.forgot a{color:var(--gold2);font-weight:500}
+.faq{max-width:760px;margin:auto;display:grid;gap:14px}
+.faq details{background:var(--card);border:1px solid var(--border);border-radius:var(--radius);padding:18px 22px}
+.faq summary{cursor:pointer;font-weight:600;list-style:none}
+.faq summary::-webkit-details-marker{display:none}
+.faq summary::after{content:"+";float:right;color:var(--gold2);font-size:1.2rem;line-height:1}
+.faq details[open] summary::after{content:"–"}
+.faq p{color:var(--muted);margin-top:12px;font-size:.95rem}
+.count{color:var(--muted);font-size:.88rem;margin-bottom:16px}
