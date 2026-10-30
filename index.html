@@ -1,208 +1,108 @@
 <!DOCTYPE html>
 <html lang="en">
 <head>
-    <meta charset="UTF-8">
-    <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>Secure Access | Prashant Saini Portfolio</title>
-    <link href="https://fonts.googleapis.com/css2?family=Outfit:wght@300;400;500;600;700&display=swap" rel="stylesheet">
-    <style>
-        * {
-            margin: 0;
-            padding: 0;
-            box-sizing: border-box;
-            font-family: 'Outfit', sans-serif;
-        }
-        body {
-            background: #030712;
-            display: flex;
-            justify-content: center;
-            align-items: center;
-            height: 100vh;
-            color: #f8fafc;
-            overflow: hidden;
-        }
-        
-        /* Instagram Style Animated Gradient Border Wrapper */
-        .card-wrapper {
-            position: relative;
-            width: 100%;
-            max-width: 400px;
-            border-radius: 22px;
-            padding: 3px; /* Border thickness */
-            background: linear-gradient(60deg, #f09433, #e6683c, #dc2743, #cc2366, #bc1888, #405de6, #5851db, #833ab4);
-            background-size: 300% 300%;
-            animation: instaBorderRotate 6s ease infinite;
-            box-shadow: 0 20px 40px rgba(0, 0, 0, 0.6);
-        }
-
-        @keyframes instaBorderRotate {
-            0% { background-position: 0% 50%; }
-            50% { background-position: 100% 50%; }
-            100% { background-position: 0% 50%; }
-        }
-
-        .login-card {
-            background: #0f172a;
-            padding: 40px 32px;
-            border-radius: 20px;
-            width: 100%;
-        }
-
-        .login-header {
-            text-align: center;
-            margin-bottom: 30px;
-        }
-        .login-header h2 {
-            font-size: 26px;
-            font-weight: 600;
-            color: #f8fafc;
-            letter-spacing: -0.5px;
-            margin-bottom: 8px;
-        }
-        .login-header p {
-            font-size: 14px;
-            color: #94a3b8;
-        }
-        .input-group {
-            margin-bottom: 20px;
-        }
-        .input-group label {
-            display: block;
-            margin-bottom: 8px;
-            font-size: 13px;
-            font-weight: 500;
-            color: #cbd5e1;
-            letter-spacing: 0.3px;
-        }
-        .input-group input {
-            width: 100%;
-            padding: 14px 16px;
-            background: rgba(30, 41, 59, 0.6);
-            border: 1px solid rgba(51, 65, 85, 0.8);
-            border-radius: 10px;
-            color: #fff;
-            font-size: 15px;
-            transition: all 0.3s ease;
-        }
-        .input-group input:focus {
-            outline: none;
-            border-color: #f09433;
-            background: rgba(30, 41, 59, 0.9);
-            box-shadow: 0 0 0 4px rgba(240, 148, 51, 0.15);
-        }
-        .login-btn {
-            width: 100%;
-            padding: 14px;
-            background: linear-gradient(135deg, #f09433 0%, #bc1888 50%, #405de6 100%);
-            background-size: 200% auto;
-            border: none;
-            border-radius: 10px;
-            color: #fff;
-            font-weight: 600;
-            font-size: 15px;
-            cursor: pointer;
-            margin-top: 10px;
-            transition: 0.4s ease;
-            box-shadow: 0 4px 15px rgba(188, 24, 136, 0.3);
-        }
-        .login-btn:hover {
-            background-position: right center;
-            transform: translateY(-1px);
-            box-shadow: 0 6px 20px rgba(188, 24, 136, 0.5);
-        }
-        .error-msg {
-            color: #f87171;
-            font-size: 13px;
-            text-align: center;
-            margin-top: 14px;
-            word-break: break-word;
-            font-weight: 500;
-        }
-        .back-link {
-            text-align: center;
-            margin-top: 24px;
-            font-size: 13px;
-            color: #64748b;
-        }
-        .back-link a {
-            color: #38bdf8;
-            text-decoration: none;
-            font-size: 13px;
-            transition: color 0.2s;
-        }
-        .back-link a:hover {
-            color: #f09433;
-        }
-    </style>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Gyaan Hub | Premium Study Materials</title>
+<meta name="description" content="Notes, previous year papers, video lectures aur mock tests, sab ek jagah.">
+<link rel="stylesheet" href="style.css">
 </head>
 <body>
-
-    <div class="card-wrapper">
-        <div class="login-card">
-            <div class="login-header">
-                <h2>Welcome Back</h2>
-                <p>Enter your credentials to access dashboard</p>
-            </div>
-            <form id="loginForm">
-                <div class="input-group">
-                    <label>Email Address</label>
-                    <input type="email" id="email" placeholder="name@example.com" required>
-                </div>
-                <div class="input-group">
-                    <label>Password</label>
-                    <input type="password" id="password" placeholder="••••••••" required>
-                </div>
-                <button type="submit" class="login-btn">Sign In</button>
-                <p id="errorMsg" class="error-msg"></p>
-            </form>
-            <div class="back-link">
-                Don't have an account? <a href="signup.html">Sign Up</a><br><br>
-                <a href="index.html">&larr; Return to Portfolio</a>
-            </div>
-        </div>
+<header class="nav">
+  <div class="container">
+    <a href="index.html" class="logo"><i>G</i> Gyaan Hub</a>
+    <nav class="links">
+      <a href="#features">Features</a>
+      <a href="#subjects">Subjects</a>
+      <a href="#how">How it works</a>
+    </nav>
+    <div class="nav-cta">
+      <a href="login.html" class="btn btn-ghost">Sign In</a>
+      <a href="signup.html" class="btn btn-gold">Get Started</a>
     </div>
+  </div>
+</header>
 
-    <!-- Firebase SDK Scripts -->
-    <script type="module">
-        import { initializeApp } from "https://www.gstatic.com/firebasejs/10.8.0/firebase-app.js";
-        import { getAuth, signInWithEmailAndPassword } from "https://www.gstatic.com/firebasejs/10.8.0/firebase-auth.js";
+<main>
+  <section class="hero">
+    <div class="container">
+      <span class="pill">✦ Smart learning, simplified</span>
+      <h1>Seekho <span class="gold">smarter</span>, aage badho <span class="gold">faster</span></h1>
+      <p>Handwritten notes, previous year papers, video lectures aur mock tests. Ek premium portal, jahan har student ko sab kuch mile.</p>
+      <div class="actions">
+        <a href="signup.html" class="btn btn-gold">Start Learning Free →</a>
+        <a href="#features" class="btn btn-ghost">Explore Features</a>
+      </div>
+      <div class="stats">
+        <div class="stat"><b>500+</b><span>Study Notes</span></div>
+        <div class="stat"><b>200+</b><span>Video Lectures</span></div>
+        <div class="stat"><b>150+</b><span>Mock Tests</span></div>
+        <div class="stat"><b>10K+</b><span>Happy Students</span></div>
+      </div>
+    </div>
+  </section>
 
-        const firebaseConfig = {
-            apiKey: "AIzaSyABw8eTGABOvIyBZ8O0-Onz9VwVUGU8JLw",
-            authDomain: "prashant-saini-b7ff4.firebaseapp.com",
-            projectId: "prashant-saini-b7ff4",
-            storageBucket: "prashant-saini-b7ff4.firebasestorage.app",
-            messagingSenderId: "810292668776",
-            appId: "1:810292668776:web:447a0998183b669bdacedd",
-            measurementId: "G-7TRVX3DTV7"
-        };
+  <section id="features">
+    <div class="container">
+      <div class="sec-head">
+        <h2>Sab kuch, <span class="gold">ek hi jagah</span></h2>
+        <p>Padhai ke liye jo bhi chahiye, clean aur organized tareeke se.</p>
+      </div>
+      <div class="grid g3">
+        <div class="card"><div class="ico">📘</div><h3>Detailed Notes</h3><p>Topic-wise, easy-to-revise notes jo exam ke liye perfect hain.</p></div>
+        <div class="card"><div class="ico">📝</div><h3>Previous Year Papers</h3><p>Solved papers ke saath pattern samjho aur practice karo.</p></div>
+        <div class="card"><div class="ico">🎥</div><h3>Video Lectures</h3><p>Mushkil concepts ko visual explanations ke saath samjho.</p></div>
+        <div class="card"><div class="ico">🎯</div><h3>Mock Tests</h3><p>Real exam jaisa practice aur instant performance feedback.</p></div>
+        <div class="card"><div class="ico">⚡</div><h3>Quick Revision</h3><p>Short formula sheets aur cheat sheets last-minute prep ke liye.</p></div>
+        <div class="card"><div class="ico">🔒</div><h3>Secure Access</h3><p>Email ya Google se safe login, aapka data aapke paas.</p></div>
+      </div>
+    </div>
+  </section>
 
-        const app = initializeApp(firebaseConfig);
-        const auth = getAuth(app);
+  <section id="subjects">
+    <div class="container">
+      <div class="sec-head">
+        <h2>Popular <span class="gold">Subjects</span></h2>
+        <p>Har subject ke liye curated study materials.</p>
+      </div>
+      <div class="grid g4">
+        <div class="card"><div class="ico">➗</div><h3>Mathematics</h3><p>Algebra se calculus tak.</p><span class="tag">120 resources</span></div>
+        <div class="card"><div class="ico">⚛️</div><h3>Physics</h3><p>Concepts + numericals.</p><span class="tag">95 resources</span></div>
+        <div class="card"><div class="ico">🧪</div><h3>Chemistry</h3><p>Organic, inorganic, physical.</p><span class="tag">88 resources</span></div>
+        <div class="card"><div class="ico">💻</div><h3>Computer Science</h3><p>Coding aur theory dono.</p><span class="tag">110 resources</span></div>
+      </div>
+    </div>
+  </section>
 
-        const loginForm = document.getElementById('loginForm');
-        const errorMsg = document.getElementById('errorMsg');
+  <section id="how">
+    <div class="container">
+      <div class="sec-head">
+        <h2>3 steps mein <span class="gold">shuru karo</span></h2>
+      </div>
+      <div class="grid g3">
+        <div class="card"><div class="ico">1</div><h3>Sign Up</h3><p>Email ya Google se free account banao.</p></div>
+        <div class="card"><div class="ico">2</div><h3>Choose Subject</h3><p>Apna subject aur material type chuno.</p></div>
+        <div class="card"><div class="ico">3</div><h3>Start Learning</h3><p>Notes padho, videos dekho, tests do.</p></div>
+      </div>
+    </div>
+  </section>
 
-        loginForm.addEventListener('submit', async (e) => {
-            e.preventDefault();
-            const email = document.getElementById('email').value.trim();
-            const password = document.getElementById('password').value.trim();
-            errorMsg.style.color = "#38bdf8";
-            errorMsg.textContent = "Authenticating...";
+  <section>
+    <div class="container">
+      <div class="cta-box">
+        <h2>Aaj hi apni <span class="gold">toppers wali journey</span> shuru karo</h2>
+        <p>Free account banao aur sabhi study materials turant access karo.</p>
+        <a href="signup.html" class="btn btn-gold">Create Free Account →</a>
+      </div>
+    </div>
+  </section>
+</main>
 
-            try {
-                await signInWithEmailAndPassword(auth, email, password);
-                errorMsg.style.color = "#4ade80";
-                errorMsg.textContent = "Success! Redirecting...";
-                setTimeout(() => {
-                    window.location.href = "index.html";
-                }, 1000);
-            } catch (error) {
-                errorMsg.style.color = "#f87171";
-                errorMsg.textContent = error.code ? error.code.replace('auth/', 'Error: ') : error.message;
-            }
-        });
-    </script>
-
+<footer>
+  <div class="container">
+    <span>© 2026 Gyaan Hub. All rights reserved.</span>
+    <span><a href="login.html">Sign In</a> · <a href="signup.html">Sign Up</a></span>
+  </div>
+</footer>
 </body>
 </html>
