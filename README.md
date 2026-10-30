@@ -8,6 +8,10 @@ A static study-materials portal with Firebase Authentication. Students can sign 
 - Google sign-in
 - Password reset by email
 - Protected dashboard with search and category filters
+- Left slide-out menu (three-line button) with Home, Dashboard, Reports, Settings, Privacy Policy, Terms of Use and Cookie preferences
+- Privacy and cookie consent popup shown on a first visit (policy acceptance required, analytics optional)
+- Reports page with summary cards, charts and CSV export
+- Settings page with account details and privacy controls
 - Responsive dark design with no build step
 
 ## Project structure
@@ -17,6 +21,10 @@ A static study-materials portal with Firebase Authentication. Students can sign 
 | `login.html` / `signup.html` | Authentication pages |
 | `dashboard.html` | Protected study-materials dashboard |
 | `auth.js` | Firebase setup and all auth logic |
+| `layout.js` | Shared left menu and consent popup |
+| `materials.js` | List of study materials (edit this) |
+| `reports.html` / `settings.html` | Reports and account settings |
+| `privacy.html` / `terms.html` | Policy pages (template text, replace the contact email) |
 | `style.css` | Shared styles |
 
 ## Run locally
@@ -34,7 +42,7 @@ Then open http://localhost:8000
 3. The Firebase config lives at the top of `auth.js`.
 
 ## Adding your own materials
-Edit the `materials` array in `dashboard.html`. Each item has a title (`t`), subject (`s`), type (`Notes`, `Papers`, `Video` or `Test`), an icon and a `link` to a PDF, Google Drive or YouTube URL.
+Edit the `materials` array in `materials.js`. The dashboard and the Reports page both use it. Each item has a title (`t`), subject (`s`), type (`Notes`, `Papers`, `Video` or `Test`), an icon and a `link` to a PDF, Google Drive or YouTube URL.
 
 ## Deployment
 Push to GitHub and enable **Settings > Pages** on the `main` branch to host the site for free.

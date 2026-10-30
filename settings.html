@@ -1,0 +1,52 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Settings | Gyaan Hub</title>
+<link rel="stylesheet" href="style.css">
+</head>
+<body>
+<header class="nav">
+  <div class="container">
+    <a href="index.html" class="logo"><i>G</i> Gyaan Hub</a>
+    <div class="nav-cta">
+      <span id="who" style="color:var(--muted);font-size:.9rem"></span>
+      <a href="login.html" class="btn btn-ghost" id="nav-login">Sign In</a>
+    </div>
+  </div>
+</header>
+
+<main class="dash">
+  <div class="container" style="max-width:780px">
+    <h1>Settings ⚙️</h1>
+    <p class="sub">Manage your account and privacy preferences.</p>
+    <div class="panel">
+      <h2>Account</h2>
+      <div class="set-row"><div><b>Email</b><small id="s-email">-</small></div></div>
+      <div class="set-row"><div><b>Display name</b><small id="s-name">-</small></div></div>
+      <div class="set-row"><div><b>Session</b><small>Sign out of this device</small></div><button class="btn btn-ghost" id="s-logout">Logout</button></div>
+    </div>
+    <div class="panel">
+      <h2>Privacy &amp; cookies</h2>
+      <div class="set-row"><div><b>Cookie preferences</b><small>Review or change which optional cookies we may use.</small></div><button class="btn btn-ghost" id="s-cookies">Manage</button></div>
+      <div class="set-row"><div><b>Withdraw consent</b><small>Clears your saved choice. You will be asked again.</small></div><button class="btn btn-ghost" id="s-reset">Reset consent</button></div>
+      <div class="set-row"><div><b>Policies</b><small><a href="privacy.html" style="color:var(--gold2)">Privacy Policy</a> · <a href="terms.html" style="color:var(--gold2)">Terms of Use</a></small></div></div>
+    </div>
+  </div>
+</main>
+<script type="module">
+  import { protectPage, logout } from "./auth.js";
+  protectPage(user => {
+    document.getElementById("who").textContent = user.email;
+    document.getElementById("nav-login").style.display = "none";
+    document.getElementById("s-email").textContent = user.email;
+    document.getElementById("s-name").textContent = user.displayName || "Not set";
+  });
+  document.getElementById("s-logout").addEventListener("click", logout);
+  document.getElementById("s-cookies").addEventListener("click", () => window.openConsent && window.openConsent());
+  document.getElementById("s-reset").addEventListener("click", () => window.resetConsent && window.resetConsent());
+</script>
+<script type="module" src="layout.js"></script>
+</body>
+</html>

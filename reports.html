@@ -1,0 +1,73 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Reports | Gyaan Hub</title>
+<link rel="stylesheet" href="style.css">
+</head>
+<body>
+<header class="nav">
+  <div class="container">
+    <a href="index.html" class="logo"><i>G</i> Gyaan Hub</a>
+    <div class="nav-cta">
+      <span id="who" style="color:var(--muted);font-size:.9rem"></span>
+      <a href="login.html" class="btn btn-ghost" id="nav-login">Sign In</a>
+    </div>
+  </div>
+</header>
+
+<main class="dash">
+  <div class="container">
+    <h1>Reports 📊</h1>
+    <p class="sub">An overview of the study material available in your library.</p>
+    <div class="kpis">
+      <div class="kpi"><b id="k-total">0</b><span>Total resources</span></div>
+      <div class="kpi"><b id="k-subj">0</b><span>Subjects covered</span></div>
+      <div class="kpi"><b id="k-types">0</b><span>Material types</span></div>
+    </div>
+    <div class="panels">
+      <div class="panel"><h2>Resources by subject</h2><div id="by-subject"></div></div>
+      <div class="panel"><h2>Resources by type</h2><div id="by-type"></div></div>
+    </div>
+    <div class="panel">
+      <h2>Export</h2>
+      <p class="sub" style="margin-bottom:16px">Download the full resource list as a CSV file that opens in Excel or Google Sheets.</p>
+      <button class="btn btn-gold" id="csv">Download CSV report</button>
+    </div>
+  </div>
+</main>
+<script type="module">
+  import { protectPage } from "./auth.js";
+  import { materials } from "./materials.js";
+
+  const labels = { Notes: "Notes", Papers: "Papers", Video: "Videos", Test: "Mock Tests" };
+  const count = key => materials.reduce((o, m) => (o[m[key]] = (o[m[key]] || 0) + 1, o), {});
+  const bars = (data, el, nameMap = {}) => {
+    const max = Math.max(...Object.values(data), 1);
+    document.getElementById(el).innerHTML = Object.entries(data).map(([k, v]) =>
+      `<div class="bar"><span>${nameMap[k] || k}</span><div class="track"><div class="fill" style="width:${v / max * 100}%"></div></div><em>${v}</em></div>`).join("");
+  };
+
+  protectPage(user => {
+    document.getElementById("who").textContent = user.email;
+    document.getElementById("nav-login").style.display = "none";
+    const subj = count("s"), types = count("type");
+    document.getElementById("k-total").textContent = materials.length;
+    document.getElementById("k-subj").textContent = Object.keys(subj).length;
+    document.getElementById("k-types").textContent = Object.keys(types).length;
+    bars(subj, "by-subject");
+    bars(types, "by-type", labels);
+  });
+
+  document.getElementById("csv").addEventListener("click", () => {
+    const q = v => '"' + String(v).replace(/"/g, '""') + '"';
+    const rows = [["Title", "Subject", "Type", "Link"], ...materials.map(m => [m.t, m.s, m.type, m.link])];
+    const blob = new Blob([rows.map(r => r.map(q).join(",")).join("\n")], { type: "text/csv" });
+    const a = Object.assign(document.createElement("a"), { href: URL.createObjectURL(blob), download: "gyaan-hub-report.csv" });
+    a.click(); URL.revokeObjectURL(a.href);
+  });
+</script>
+<script type="module" src="layout.js"></script>
+</body>
+</html>

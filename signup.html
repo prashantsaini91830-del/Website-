@@ -16,19 +16,33 @@
     <form id="form">
       <div class="field"><label for="email">Email address</label><input id="email" name="email" type="email" placeholder="you@example.com" required autocomplete="email"></div>
       <div class="field"><label for="password">Password (min 6 characters)</label><input id="password" name="password" type="password" placeholder="••••••••" required minlength="6" autocomplete="new-password"></div>
+      <label class="check"><input type="checkbox" id="agree" required><span>I agree to the <a href="terms.html" target="_blank" rel="noopener">Terms of Use</a> and <a href="privacy.html" target="_blank" rel="noopener">Privacy Policy</a>.</span></label>
       <button class="btn btn-gold btn-block" type="submit">Create Account</button>
     </form>
     <div class="divider">OR</div>
-    <button id="google" class="btn btn-ghost btn-block" type="button">
+    <button id="google" class="btn btn-ghost btn-block" type="button" onclick="if(!document.getElementById('agree').checked){event.stopImmediatePropagation();var m=document.getElementById('msg');m.className='msg err';m.textContent='Please accept the Terms of Use and Privacy Policy first.';}">
       <img class="gicon" src="https://www.gstatic.com/firebasejs/ui/2.0.0/images/auth/google.svg" alt=""> Continue with Google
     </button>
     <p class="alt">Already have an account? <a href="login.html">Sign In</a></p>
     <p class="alt"><a href="index.html" style="color:var(--muted);font-weight:500">← Back to home</a></p>
   </div>
 </div>
+<script>
+  // Fallback: runs only if auth.js failed to load (for example when opened as file://)
+  document.getElementById("form").addEventListener("submit", function (e) {
+    if (window.__authReady) return;
+    e.preventDefault();
+    var m = document.getElementById("msg");
+    m.className = "msg err";
+    m.textContent = location.protocol === "file:"
+      ? "This page must be opened through a web server or your hosted URL, not as a local file. Run: python3 -m http.server 8000"
+      : "Could not load auth.js. Make sure auth.js is uploaded next to this file, then refresh.";
+  });
+</script>
 <script type="module">
   import { setupSignup } from "./auth.js";
   setupSignup();
 </script>
+<script type="module" src="layout.js"></script>
 </body>
 </html>
