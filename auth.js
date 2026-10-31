@@ -115,11 +115,26 @@ export function setupSignup() {
   wireForm(async (email, password) => {
     if (DEMO) return demoLogin(email);
     await createUserWithEmailAndPassword(auth, email, password);
-    location.href = "dashboard.html";
+    location.href = "verify.html";
   });
 }
 
-export function protectPage(cb) {
+// An account counts as verified if it signed in with Google, has a verified
+// Firebase email, or finished the OTP check on this device (see verify.html).
+export function isVerified(user) {
+  if (DEMO) return true;
+  if (!user) return false;
+  if (user.emailVerified) return true;
+  if ((user.providerData || []).some(p => p.providerId === "google.com")) return true;
+  try { return localStorage.getItem("gyaan_verified_" + user.uid) === "1"; } catch (e) { return false; }
+}
+
+export function markVerified(user) {
+  try { localStorage.setItem("gyaan_verified_" + user.uid, "1"); } catch (e) {}
+}
+
+export function protectPage(cb, opts = {}) {
+  const requireVerified = opts.requireVerified !== false;
   if (DEMO) {
     const u = JSON.parse(localStorage.getItem(DEMO_KEY) || "null");
     if (!u) { location.href = "login.html"; return; }
@@ -128,6 +143,7 @@ export function protectPage(cb) {
   }
   onAuthStateChanged(auth, user => {
     if (!user) { location.href = "login.html"; return; }
+    if (requireVerified && !isVerified(user)) { location.href = "verify.html"; return; }
     cb(user, false);
   });
 }

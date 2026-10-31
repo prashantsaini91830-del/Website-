@@ -4,7 +4,7 @@
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1.0">
 <title>Reports | Gyaan Hub</title>
-<link rel="stylesheet" href="style.css">
+<link rel="stylesheet" href="style.css?v=3">
 </head>
 <body>
 <header class="nav">
@@ -38,8 +38,8 @@
   </div>
 </main>
 <script type="module">
-  import { protectPage } from "./auth.js";
-  import { materials } from "./materials.js";
+  import { protectPage } from "./auth.js?v=3";
+  import { materials } from "./materials.js?v=3";
 
   const labels = { Notes: "Notes", Papers: "Papers", Video: "Videos", Test: "Mock Tests" };
   const count = key => materials.reduce((o, m) => (o[m[key]] = (o[m[key]] || 0) + 1, o), {});
@@ -68,6 +68,6 @@
     a.click(); URL.revokeObjectURL(a.href);
   });
 </script>
-<script type="module" src="layout.js"></script>
+<script type="module" src="layout.js?v=3"></script>
 </body>
 </html>

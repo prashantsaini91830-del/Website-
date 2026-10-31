@@ -4,7 +4,7 @@
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1.0">
 <title>Dashboard | Gyaan Hub</title>
-<link rel="stylesheet" href="style.css">
+<link rel="stylesheet" href="style.css?v=3">
 </head>
 <body>
 <header class="nav">
@@ -41,8 +41,8 @@
 </main>
 
 <script type="module">
-  import { protectPage, logout } from "./auth.js";
-  import { materials } from "./materials.js";
+  import { protectPage, logout } from "./auth.js?v=3";
+  import { materials } from "./materials.js?v=3";
 
 
   let filter = "all", q = "";
@@ -82,6 +82,6 @@
     render();
   });
 </script>
-<script type="module" src="layout.js"></script>
+<script type="module" src="layout.js?v=3"></script>
 </body>
 </html>

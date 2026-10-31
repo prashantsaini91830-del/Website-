@@ -4,7 +4,7 @@
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1.0">
 <title>Verify Email | Gyaan Hub</title>
-<link rel="stylesheet" href="style.css">
+<link rel="stylesheet" href="style.css?v=3">
 </head>
 <body>
 <div class="auth-wrap">
@@ -22,12 +22,13 @@
     </form>
     <p class="alt">Didn't get the email? <button type="button" class="linkbtn" id="resend" disabled>Resend code</button></p>
     <p class="alt" style="margin-top:10px">Check your spam folder too. The code is valid for 10 minutes.</p>
+    <p class="alt" style="font-size:.72rem;opacity:.6">build 3</p>
     <p class="alt"><a href="#" id="logout" style="color:var(--muted);font-weight:500">Use a different account</a></p>
   </div>
 </div>
 
 <script type="module">
-  import { protectPage, markVerified, logout } from "./auth.js";
+  import { onUser, isVerified, markVerified, logout } from "./auth.js?v=3";
 
   // ---- EmailJS settings ----
   const EMAILJS = {
@@ -116,9 +117,16 @@
   $("resend").addEventListener("click", () => sendCode(true));
   $("logout").addEventListener("click", e => { e.preventDefault(); logout(); });
 
-  protectPage(async (u, demo) => {
+  onUser(u => {
+    if (!u) {
+      $("sub").textContent = "Please sign in first to verify your email.";
+      msg("You are not signed in.");
+      $("form").style.display = "none";
+      document.querySelector(".alt").innerHTML = '<a href="login.html" class="btn btn-gold btn-block">Go to Sign In</a>';
+      return;
+    }
+    if (isVerified(u)) { location.href = "dashboard.html"; return; }
     user = u;
-    if (demo) { location.href = "dashboard.html"; return; }
     $("sub").textContent = "Enter the code we emailed to " + u.email;
     const rec = read(kOtp());
     if (rec && Date.now() < rec.exp) {
@@ -127,8 +135,8 @@
     } else {
       sendCode(false);
     }
-  }, { requireVerified: false });
+  });
 </script>
-<script type="module" src="layout.js"></script>
+<script type="module" src="layout.js?v=3"></script>
 </body>
 </html>

@@ -4,7 +4,7 @@
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1.0">
 <title>Settings | Gyaan Hub</title>
-<link rel="stylesheet" href="style.css">
+<link rel="stylesheet" href="style.css?v=3">
 </head>
 <body>
 <header class="nav">
@@ -36,7 +36,7 @@
   </div>
 </main>
 <script type="module">
-  import { protectPage, logout } from "./auth.js";
+  import { protectPage, logout } from "./auth.js?v=3";
   protectPage(user => {
     document.getElementById("who").textContent = user.email;
     document.getElementById("nav-login").style.display = "none";
@@ -47,6 +47,6 @@
   document.getElementById("s-cookies").addEventListener("click", () => window.openConsent && window.openConsent());
   document.getElementById("s-reset").addEventListener("click", () => window.resetConsent && window.resetConsent());
 </script>
-<script type="module" src="layout.js"></script>
+<script type="module" src="layout.js?v=3"></script>
 </body>
 </html>
