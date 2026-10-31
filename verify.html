@@ -80,7 +80,7 @@
           service_id: EMAILJS.serviceId,
           template_id: EMAILJS.templateId,
           user_id: EMAILJS.publicKey,
-          template_params: { to_email: user.email, otp: code }
+          template_params: { to_email: user.email, email: user.email, user_email: user.email, to: user.email, reply_to: user.email, otp: code }
         })
       });
       if (!res.ok) throw new Error(await res.text());
