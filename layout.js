@@ -14,6 +14,7 @@ const esc = s => String(s).replace(/[&<>"]/g, c => ({ "&": "&amp;", "<": "&lt;",
 const items = [
   ["index.html", "🏠", "Home"],
   ["dashboard.html", "📚", "Dashboard"],
+  ["tests.html", "📝", "Tests"],
   ["reports.html", "📊", "Reports"],
   ["settings.html", "⚙️", "Settings"]
 ];
@@ -66,10 +67,14 @@ function buildMenu() {
 
   const box = drawer.querySelector("#drawer-auth");
   const signedOut = () => { box.innerHTML = `<a href="login.html" class="btn btn-ghost btn-block">Sign In</a><a href="signup.html" class="btn btn-gold btn-block">Sign Up</a>`; };
-  import("./auth.js?v=3").then(a => a.onUser(u => {
+  import("./auth.js?v=4").then(a => a.onUser(u => {
     if (!u) return signedOut();
     box.innerHTML = `<div class="who">Signed in as<br><b>${esc(u.email || "")}</b></div><button class="btn btn-ghost btn-block" id="drawer-logout">Logout</button>`;
     box.querySelector("#drawer-logout").addEventListener("click", a.logout);
+    a.checkAdmin(u).then(ok => {
+      const s = drawer.querySelector('a[href="settings.html"]');
+      if (ok && s) s.insertAdjacentHTML("afterend", `<a href="admin.html" class="${page === "admin.html" ? "active" : ""}"><span>🛠️</span>Admin</a>`);
+    });
   })).catch(signedOut);
 }
 

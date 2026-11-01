@@ -4,7 +4,7 @@
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1.0">
 <title>Verify Email | Gyaan Hub</title>
-<link rel="stylesheet" href="style.css?v=3">
+<link rel="stylesheet" href="style.css?v=4">
 </head>
 <body>
 <div class="auth-wrap">
@@ -16,19 +16,20 @@
     <form id="form">
       <div class="field">
         <label for="code">6-digit verification code</label>
-        <input id="code" class="otp-input" type="text" inputmode="numeric" pattern="[0-9]{6}" maxlength="6" placeholder="······" autocomplete="one-time-code" required>
+        <input id="code" class="otp-input" type="text" inputmode="numeric" pattern="[0-9]{6}" placeholder="······" autocomplete="one-time-code" required>
       </div>
+      <button class="btn btn-ghost btn-block" type="button" id="paste" style="margin-bottom:12px">📋 Paste code from clipboard</button>
       <button class="btn btn-gold btn-block" type="submit" id="verify">Verify</button>
     </form>
     <p class="alt">Didn't get the email? <button type="button" class="linkbtn" id="resend" disabled>Resend code</button></p>
     <p class="alt" style="margin-top:10px">Check your spam folder too. The code is valid for 10 minutes.</p>
-    <p class="alt" style="font-size:.72rem;opacity:.6">build 3</p>
+    <p class="alt" style="font-size:.72rem;opacity:.6">build 4</p>
     <p class="alt"><a href="#" id="logout" style="color:var(--muted);font-weight:500">Use a different account</a></p>
   </div>
 </div>
 
 <script type="module">
-  import { onUser, isVerified, markVerified, logout } from "./auth.js?v=3";
+  import { onUser, isVerified, markVerified, logout } from "./auth.js?v=4";
 
   // ---- EmailJS settings ----
   const EMAILJS = {
@@ -114,6 +115,19 @@
     }
   });
 
+  // keep only digits (handles pasted text like "123 456")
+  $("code").addEventListener("input", e => { e.target.value = e.target.value.replace(/\D/g, "").slice(0, 6); });
+  $("paste").addEventListener("click", async () => {
+    try {
+      const t = (await navigator.clipboard.readText()).replace(/\D/g, "").slice(0, 6);
+      if (t.length === 6) { $("code").value = t; msg("Code pasted. Tap Verify.", "ok"); }
+      else msg("No 6-digit code found in your clipboard. Copy the code from the email first.");
+    } catch (e) { msg("Your browser blocked clipboard access. Long-press the code box and choose Paste."); }
+  });
+  // one-tap link from the email: verify.html?code=123456 fills the box
+  const fromLink = new URLSearchParams(location.search).get("code");
+  if (fromLink && /^\d{6}$/.test(fromLink)) { $("code").value = fromLink; history.replaceState(null, "", "verify.html"); }
+
   $("resend").addEventListener("click", () => sendCode(true));
   $("logout").addEventListener("click", e => { e.preventDefault(); logout(); });
 
@@ -137,6 +151,6 @@
     }
   });
 </script>
-<script type="module" src="layout.js?v=3"></script>
+<script type="module" src="layout.js?v=4"></script>
 </body>
 </html>

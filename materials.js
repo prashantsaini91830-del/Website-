@@ -17,3 +17,5 @@ export const materials = [
     { t: "Operating Systems Previous Year Papers", s: "Computer Science", type: "Papers", icon: "📝", link: "#" },
     { t: "Computer Science Mock Test 1", s: "Computer Science", type: "Test", icon: "🎯", link: "#" }
   ];
+
+export const iconFor = t => ({ Notes: "📘", Papers: "📝", Video: "🎥", Test: "🎯" }[t] || "📘");

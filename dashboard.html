@@ -4,7 +4,7 @@
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1.0">
 <title>Dashboard | Gyaan Hub</title>
-<link rel="stylesheet" href="style.css?v=3">
+<link rel="stylesheet" href="style.css?v=4">
 </head>
 <body>
 <header class="nav">
@@ -41,8 +41,18 @@
 </main>
 
 <script type="module">
-  import { protectPage, logout } from "./auth.js?v=3";
-  import { materials } from "./materials.js?v=3";
+  import { protectPage, logout, fsList } from "./auth.js?v=4";
+  import { materials as sample, iconFor } from "./materials.js?v=4";
+
+  let materials = sample;
+  const esc = s => String(s ?? "").replace(/[&<>"]/g, c => ({ "&": "&amp;", "<": "&lt;", ">": "&gt;", '"': "&quot;" }[c]));
+  const safe = u => /^https?:\/\//i.test(u || "") ? esc(u) : "#";
+  async function loadMaterials() {
+    try {
+      const r = (await fsList("materials")).filter(x => x.active !== false);
+      if (r.length) materials = r.map(x => ({ t: x.t, s: x.s, type: x.type, icon: iconFor(x.type), link: x.link }));
+    } catch (e) { /* keep the sample list */ }
+  }
 
 
   let filter = "all", q = "";
@@ -53,10 +63,10 @@
       (filter === "all" || m.type === filter) &&
       (m.t + " " + m.s).toLowerCase().includes(q.trim().toLowerCase()));
     list.innerHTML = rows.map(m => `
-      <a class="card" href="${m.link}" target="_blank" rel="noopener">
+      <a class="card" href="${safe(m.link)}" target="_blank" rel="noopener">
         <div class="ico">${m.icon}</div>
-        <h3>${m.t}</h3>
-        <div class="mat"><small>${m.s}</small><span class="tag" style="margin:0">${m.type}</span></div>
+        <h3>${esc(m.t)}</h3>
+        <div class="mat"><small>${esc(m.s)}</small><span class="tag" style="margin:0">${esc(m.type)}</span></div>
       </a>`).join("");
     empty.style.display = rows.length ? "none" : "block";
     count.textContent = rows.length + (rows.length === 1 ? " resource" : " resources") + " available";
@@ -79,9 +89,9 @@
       d.className = "msg ok";
       d.textContent = "Demo mode: real login will start working as soon as you add your Firebase config in auth.js.";
     }
-    render();
+    loadMaterials().then(render);
   });
 </script>
-<script type="module" src="layout.js?v=3"></script>
+<script type="module" src="layout.js?v=4"></script>
 </body>
 </html>

@@ -1,0 +1,231 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Admin Panel | Gyaan Hub</title>
+<link rel="stylesheet" href="style.css?v=4">
+</head>
+<body>
+<header class="nav">
+  <div class="container">
+    <a href="index.html" class="logo"><i>G</i> Gyaan Hub</a>
+    <div class="nav-cta"><span id="who" style="color:var(--muted);font-size:.9rem"></span></div>
+  </div>
+</header>
+
+<main class="dash">
+  <div class="container" style="max-width:900px">
+    <h1>Admin Panel 🛠️</h1>
+    <p class="sub">Manage study materials, online tests and student results.</p>
+    <div id="deny" class="msg"></div>
+    <div id="notice" class="msg"></div>
+
+    <div id="app" style="display:none">
+      <div class="tabs" id="tabs">
+        <button class="tab on" data-t="materials">Materials</button>
+        <button class="tab" data-t="tests">Tests</button>
+        <button class="tab" data-t="results">Results</button>
+      </div>
+
+      <!-- Materials -->
+      <section id="tab-materials" style="padding:0">
+        <div class="panel">
+          <h2 id="m-head">Add material</h2>
+          <div class="field"><label for="m-t">Title</label><input id="m-t" placeholder="e.g. Calculus Complete Notes"></div>
+          <div class="field"><label for="m-s">Subject</label><input id="m-s" list="subjects" placeholder="e.g. Mathematics"><datalist id="subjects"></datalist></div>
+          <div class="field"><label for="m-type">Type</label>
+            <select id="m-type"><option value="Notes">Notes</option><option value="Papers">Papers</option><option value="Video">Video</option><option value="Test">Mock Test</option></select></div>
+          <div class="field"><label for="m-link">Link (PDF, Google Drive or YouTube URL)</label><input id="m-link" type="url" placeholder="https://..."></div>
+          <label class="check"><input type="checkbox" id="m-active" checked><span>Visible to students</span></label>
+          <div class="acts"><button class="btn btn-gold" id="m-save">Save material</button><button class="btn btn-ghost" id="m-cancel" style="display:none">Cancel edit</button></div>
+        </div>
+        <div class="panel">
+          <h2>All materials (<span id="m-count">0</span>)</h2>
+          <div id="m-list"></div>
+          <button class="btn btn-ghost" id="m-seed" style="display:none;margin-top:14px">Import the sample materials</button>
+        </div>
+      </section>
+
+      <!-- Tests -->
+      <section id="tab-tests" style="padding:0;display:none">
+        <div class="panel">
+          <h2 id="t-head">Create test</h2>
+          <div class="field"><label for="t-title">Test title</label><input id="t-title" placeholder="e.g. Physics Mock Test 1"></div>
+          <div class="field"><label for="t-subject">Subject</label><input id="t-subject" list="subjects" placeholder="e.g. Physics"></div>
+          <div class="field"><label for="t-min">Time limit in minutes (0 = no limit)</label><input id="t-min" type="number" min="0" max="300" value="30"></div>
+          <div id="t-qs"></div>
+          <div class="acts" style="margin-bottom:16px"><button class="btn btn-ghost" id="t-addq" type="button">+ Add question</button></div>
+          <label class="check"><input type="checkbox" id="t-active" checked><span>Visible to students</span></label>
+          <div class="acts"><button class="btn btn-gold" id="t-save">Save test</button><button class="btn btn-ghost" id="t-cancel" style="display:none">Cancel edit</button></div>
+        </div>
+        <div class="panel"><h2>All tests (<span id="t-count">0</span>)</h2><div id="t-list"></div></div>
+      </section>
+
+      <!-- Results -->
+      <section id="tab-results" style="padding:0;display:none">
+        <div class="kpis">
+          <div class="kpi"><b id="r-n">0</b><span>Attempts</span></div>
+          <div class="kpi"><b id="r-avg">0%</b><span>Average score</span></div>
+          <div class="kpi"><b id="r-users">0</b><span>Students</span></div>
+        </div>
+        <div class="panel">
+          <h2>Latest results</h2>
+          <div class="tbl-wrap"><table class="tbl"><thead><tr><th>Student</th><th>Test</th><th>Score</th><th>Date</th></tr></thead><tbody id="r-body"></tbody></table></div>
+          <button class="btn btn-ghost" id="r-csv" style="margin-top:14px">Download CSV</button>
+        </div>
+      </section>
+    </div>
+  </div>
+</main>
+
+<script type="module">
+  import { protectPage, checkAdmin, fsList, fsRecent, fsSave, fsDelete } from "./auth.js?v=4";
+  import { materials as sample } from "./materials.js?v=4";
+
+  const $ = id => document.getElementById(id);
+  const esc = s => String(s ?? "").replace(/[&<>"]/g, c => ({ "&": "&amp;", "<": "&lt;", ">": "&gt;", '"': "&quot;" }[c]));
+  const note = (t, type = "ok") => { $("notice").className = "msg " + type; $("notice").textContent = t; setTimeout(() => { $("notice").className = "msg"; }, 4000); };
+
+  let mats = [], tests = [], results = [], editM = null, editT = null;
+  let qs = [newQ()];
+  function newQ() { return { q: "", opts: ["", "", "", ""], ans: 0 }; }
+
+  /* ---------- tabs ---------- */
+  $("tabs").addEventListener("click", e => {
+    const b = e.target.closest(".tab"); if (!b) return;
+    document.querySelectorAll(".tab").forEach(t => t.classList.toggle("on", t === b));
+    ["materials", "tests", "results"].forEach(n => $("tab-" + n).style.display = n === b.dataset.t ? "block" : "none");
+    if (b.dataset.t === "results") loadResults();
+  });
+
+  /* ---------- materials ---------- */
+  async function loadMaterials() {
+    mats = (await fsList("materials")).sort((a, b) => (a.t || "").localeCompare(b.t || ""));
+    $("m-count").textContent = mats.length;
+    $("m-seed").style.display = mats.length ? "none" : "inline-flex";
+    $("subjects").innerHTML = [...new Set([...mats.map(m => m.s), ...tests.map(t => t.subject)].filter(Boolean))].map(s => `<option value="${esc(s)}">`).join("");
+    $("m-list").innerHTML = mats.length ? mats.map(m => `
+      <div class="row"><div class="info"><b>${esc(m.t)} <span class="badge ${m.active === false ? "off" : ""}">${m.active === false ? "Hidden" : "Live"}</span></b>
+        <small>${esc(m.s)} · ${esc(m.type)}</small></div>
+        <div class="acts"><button class="btn btn-ghost btn-sm" data-a="edit" data-id="${esc(m.id)}">Edit</button>
+        <button class="btn btn-ghost btn-sm" data-a="toggle" data-id="${esc(m.id)}">${m.active === false ? "Show" : "Hide"}</button>
+        <button class="btn btn-ghost btn-sm" data-a="del" data-id="${esc(m.id)}">Delete</button></div></div>`).join("")
+      : '<p class="sub" style="margin:0">No materials yet. Add one above, or import the samples.</p>';
+  }
+  function resetM() { editM = null; $("m-head").textContent = "Add material"; ["m-t", "m-s", "m-link"].forEach(i => $(i).value = ""); $("m-type").value = "Notes"; $("m-active").checked = true; $("m-cancel").style.display = "none"; }
+  $("m-cancel").addEventListener("click", resetM);
+  $("m-save").addEventListener("click", async () => {
+    const data = { t: $("m-t").value.trim(), s: $("m-s").value.trim(), type: $("m-type").value, link: $("m-link").value.trim(), active: $("m-active").checked };
+    if (!data.t || !data.s) return note("Title and subject are required.", "err");
+    if (data.link && !/^https?:\/\//i.test(data.link)) return note("The link must start with http:// or https://", "err");
+    try { await fsSave("materials", editM, data); note("Material saved."); resetM(); await loadMaterials(); }
+    catch (e) { note("Could not save: " + (e.code || e.message), "err"); }
+  });
+  $("m-list").addEventListener("click", async e => {
+    const b = e.target.closest("button[data-a]"); if (!b) return;
+    const m = mats.find(x => x.id === b.dataset.id); if (!m) return;
+    try {
+      if (b.dataset.a === "edit") {
+        editM = m.id; $("m-head").textContent = "Edit material";
+        $("m-t").value = m.t || ""; $("m-s").value = m.s || ""; $("m-type").value = m.type || "Notes"; $("m-link").value = m.link || ""; $("m-active").checked = m.active !== false;
+        $("m-cancel").style.display = "inline-flex"; window.scrollTo(0, 0);
+      } else if (b.dataset.a === "toggle") { await fsSave("materials", m.id, { active: m.active === false }); await loadMaterials(); }
+      else if (b.dataset.a === "del" && confirm('Delete "' + m.t + '"?')) { await fsDelete("materials", m.id); note("Deleted."); await loadMaterials(); }
+    } catch (err) { note("Action failed: " + (err.code || err.message), "err"); }
+  });
+  $("m-seed").addEventListener("click", async () => {
+    try { for (const m of sample) await fsSave("materials", null, { t: m.t, s: m.s, type: m.type, link: m.link === "#" ? "" : m.link, active: true }); note("Sample materials imported."); await loadMaterials(); }
+    catch (e) { note("Import failed: " + (e.code || e.message), "err"); }
+  });
+
+  /* ---------- tests ---------- */
+  function renderQs() {
+    $("t-qs").innerHTML = qs.map((q, i) => `
+      <div class="qblock"><div class="qhead"><b>Question ${i + 1}</b>${qs.length > 1 ? `<button type="button" class="linkbtn" data-rm="${i}">Remove</button>` : ""}</div>
+        <textarea data-q="${i}" rows="2" placeholder="Type the question">${esc(q.q)}</textarea>
+        ${q.opts.map((o, j) => `<label class="optrow"><input type="radio" name="ans${i}" data-a="${i}" value="${j}" ${q.ans === j ? "checked" : ""}><input type="text" data-o="${i}:${j}" value="${esc(o)}" placeholder="Option ${"ABCD"[j]}"></label>`).join("")}
+        <small>Select the round button next to the correct option.</small></div>`).join("");
+  }
+  $("t-qs").addEventListener("input", e => {
+    const t = e.target;
+    if (t.dataset.q !== undefined) qs[+t.dataset.q].q = t.value;
+    else if (t.dataset.o) { const [i, j] = t.dataset.o.split(":"); qs[+i].opts[+j] = t.value; }
+  });
+  $("t-qs").addEventListener("change", e => { if (e.target.dataset.a !== undefined) qs[+e.target.dataset.a].ans = +e.target.value; });
+  $("t-qs").addEventListener("click", e => { const b = e.target.closest("[data-rm]"); if (b) { qs.splice(+b.dataset.rm, 1); renderQs(); } });
+  $("t-addq").addEventListener("click", () => { qs.push(newQ()); renderQs(); });
+
+  async function loadTests() {
+    tests = (await fsList("tests")).sort((a, b) => (a.title || "").localeCompare(b.title || ""));
+    $("t-count").textContent = tests.length;
+    $("t-list").innerHTML = tests.length ? tests.map(t => `
+      <div class="row"><div class="info"><b>${esc(t.title)} <span class="badge ${t.active === false ? "off" : ""}">${t.active === false ? "Hidden" : "Live"}</span></b>
+        <small>${esc(t.subject || "General")} · ${(t.questions || []).length} questions · ${t.minutes ? t.minutes + " min" : "no limit"}</small></div>
+        <div class="acts"><button class="btn btn-ghost btn-sm" data-a="edit" data-id="${esc(t.id)}">Edit</button>
+        <button class="btn btn-ghost btn-sm" data-a="toggle" data-id="${esc(t.id)}">${t.active === false ? "Show" : "Hide"}</button>
+        <button class="btn btn-ghost btn-sm" data-a="del" data-id="${esc(t.id)}">Delete</button></div></div>`).join("")
+      : '<p class="sub" style="margin:0">No tests yet. Create your first test above.</p>';
+  }
+  function resetT() { editT = null; $("t-head").textContent = "Create test"; $("t-title").value = ""; $("t-subject").value = ""; $("t-min").value = 30; $("t-active").checked = true; qs = [newQ()]; renderQs(); $("t-cancel").style.display = "none"; }
+  $("t-cancel").addEventListener("click", resetT);
+  $("t-save").addEventListener("click", async () => {
+    const title = $("t-title").value.trim();
+    if (!title) return note("Test title is required.", "err");
+    for (let i = 0; i < qs.length; i++) {
+      if (!qs[i].q.trim()) return note("Question " + (i + 1) + " is empty.", "err");
+      if (qs[i].opts.some(o => !o.trim())) return note("Question " + (i + 1) + " needs all 4 options filled in.", "err");
+    }
+    const data = { title, subject: $("t-subject").value.trim(), minutes: Math.max(0, parseInt($("t-min").value, 10) || 0), active: $("t-active").checked,
+      questions: qs.map(q => ({ q: q.q.trim(), opts: q.opts.map(o => o.trim()), ans: q.ans })) };
+    try { await fsSave("tests", editT, data); note("Test saved."); resetT(); await loadTests(); }
+    catch (e) { note("Could not save: " + (e.code || e.message), "err"); }
+  });
+  $("t-list").addEventListener("click", async e => {
+    const b = e.target.closest("button[data-a]"); if (!b) return;
+    const t = tests.find(x => x.id === b.dataset.id); if (!t) return;
+    try {
+      if (b.dataset.a === "edit") {
+        editT = t.id; $("t-head").textContent = "Edit test"; $("t-title").value = t.title || ""; $("t-subject").value = t.subject || ""; $("t-min").value = t.minutes || 0; $("t-active").checked = t.active !== false;
+        qs = (t.questions || []).map(q => ({ q: q.q, opts: [...q.opts], ans: q.ans })); if (!qs.length) qs = [newQ()];
+        renderQs(); $("t-cancel").style.display = "inline-flex"; $("t-head").scrollIntoView();
+      } else if (b.dataset.a === "toggle") { await fsSave("tests", t.id, { active: t.active === false }); await loadTests(); }
+      else if (b.dataset.a === "del" && confirm('Delete "' + t.title + '"?')) { await fsDelete("tests", t.id); note("Deleted."); await loadTests(); }
+    } catch (err) { note("Action failed: " + (err.code || err.message), "err"); }
+  });
+
+  /* ---------- results ---------- */
+  const when = r => { try { return r.createdAt.toDate().toLocaleString(); } catch (e) { return ""; } };
+  async function loadResults() {
+    try { results = await fsRecent("results", 200); } catch (e) { return note("Could not load results: " + (e.code || e.message), "err"); }
+    const pct = results.map(r => r.total ? r.score / r.total * 100 : 0);
+    $("r-n").textContent = results.length;
+    $("r-avg").textContent = (results.length ? Math.round(pct.reduce((a, b) => a + b, 0) / results.length) : 0) + "%";
+    $("r-users").textContent = new Set(results.map(r => r.uid)).size;
+    $("r-body").innerHTML = results.length ? results.map(r => `<tr><td>${esc(r.email)}</td><td>${esc(r.testTitle)}</td><td>${r.score}/${r.total}</td><td>${esc(when(r))}</td></tr>`).join("") : '<tr><td colspan="4">No results yet.</td></tr>';
+  }
+  $("r-csv").addEventListener("click", () => {
+    const q = v => '"' + String(v ?? "").replace(/"/g, '""') + '"';
+    const rows = [["Student", "Test", "Score", "Total", "Date"], ...results.map(r => [r.email, r.testTitle, r.score, r.total, when(r)])];
+    const blob = new Blob([rows.map(r => r.map(q).join(",")).join("\n")], { type: "text/csv" });
+    const a = Object.assign(document.createElement("a"), { href: URL.createObjectURL(blob), download: "gyaan-hub-results.csv" });
+    a.click(); URL.revokeObjectURL(a.href);
+  });
+
+  /* ---------- start ---------- */
+  protectPage(async user => {
+    $("who").textContent = user.email;
+    if (!(await checkAdmin(user))) {
+      $("deny").className = "msg err";
+      $("deny").innerHTML = "You do not have admin access. If this is your account, create the document <b>admins/" + esc(user.uid) + "</b> in Firestore (field <b>role</b> = <b>admin</b>) and publish the Firestore rules.";
+      return;
+    }
+    $("app").style.display = "block";
+    renderQs();
+    try { await loadTests(); await loadMaterials(); }
+    catch (e) { note("Could not load data: " + (e.code || e.message) + ". Check that the Firestore rules are published.", "err"); }
+  });
+</script>
+<script type="module" src="layout.js?v=4"></script>
+</body>
+</html>

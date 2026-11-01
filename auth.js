@@ -5,6 +5,10 @@ import {
   signInWithEmailAndPassword, createUserWithEmailAndPassword,
   GoogleAuthProvider, signInWithPopup, sendPasswordResetEmail
 } from "https://www.gstatic.com/firebasejs/10.14.1/firebase-auth.js";
+import {
+  getFirestore, collection, doc, getDoc, getDocs, setDoc, addDoc, deleteDoc,
+  query, orderBy, limit, serverTimestamp
+} from "https://www.gstatic.com/firebasejs/10.14.1/firebase-firestore.js";
 
 const firebaseConfig = {
   apiKey: "AIzaSyABw8eTGABOvIyBZ8O0-Onz9VwVUGU8JLw",
@@ -17,10 +21,11 @@ const firebaseConfig = {
 };
 
 const DEMO = firebaseConfig.apiKey.startsWith("YOUR_");
-let app, auth;
+let app, auth, db;
 if (!DEMO) {
   app = initializeApp(firebaseConfig);
   auth = getAuth(app);
+  db = getFirestore(app);
   // Analytics only works over http(s), not file://
   // Analytics starts only after the visitor has given consent
   let analyticsStarted = false;
@@ -157,4 +162,34 @@ export async function logout() {
   if (DEMO) localStorage.removeItem(DEMO_KEY);
   else await signOut(auth);
   location.href = "login.html";
+}
+
+// ---------- Firestore helpers (admin panel, tests, materials) ----------
+export async function checkAdmin(user) {
+  if (DEMO || !user) return false;
+  try { return (await getDoc(doc(db, "admins", user.uid))).exists(); } catch (e) { return false; }
+}
+
+export async function fsList(name) {
+  if (DEMO) return [];
+  const snap = await getDocs(collection(db, name));
+  return snap.docs.map(d => ({ id: d.id, ...d.data() }));
+}
+
+export async function fsRecent(name, n = 200) {
+  if (DEMO) return [];
+  const snap = await getDocs(query(collection(db, name), orderBy("createdAt", "desc"), limit(n)));
+  return snap.docs.map(d => ({ id: d.id, ...d.data() }));
+}
+
+export async function fsSave(name, id, data) {
+  if (DEMO) throw new Error("Not available in demo mode.");
+  if (id) { await setDoc(doc(db, name, id), { ...data, updatedAt: serverTimestamp() }, { merge: true }); return id; }
+  const ref = await addDoc(collection(db, name), { ...data, createdAt: serverTimestamp() });
+  return ref.id;
+}
+
+export async function fsDelete(name, id) {
+  if (DEMO) throw new Error("Not available in demo mode.");
+  await deleteDoc(doc(db, name, id));
 }
