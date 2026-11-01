@@ -21,11 +21,12 @@ const firebaseConfig = {
 };
 
 const DEMO = firebaseConfig.apiKey.startsWith("YOUR_");
-let app, auth, db;
+let app, auth, dbMain, dbAlt;
 if (!DEMO) {
   app = initializeApp(firebaseConfig);
   auth = getAuth(app);
-  db = getFirestore(app);
+  dbMain = getFirestore(app);
+  dbAlt = getFirestore(app, "default");   // fallback if the database was created with the ID "default"
   // Analytics only works over http(s), not file://
   // Analytics starts only after the visitor has given consent
   let analyticsStarted = false;
@@ -165,31 +166,54 @@ export async function logout() {
 }
 
 // ---------- Firestore helpers (admin panel, tests, materials) ----------
+// Every call has an 8 second limit so a page never stays blank. If the "(default)"
+// database cannot be reached, the same call is retried on a database named "default".
+let useAlt = false;
+const withTimeout = (p, ms = 8000) => Promise.race([p, new Promise((_, rej) => setTimeout(() => rej({ code: "timeout" }), ms))]);
+
+async function run(fn) {
+  if (DEMO) throw { code: "demo" };
+  if (useAlt) return withTimeout(fn(dbAlt));
+  try { return await withTimeout(fn(dbMain)); }
+  catch (e) {
+    if (!["not-found", "unavailable", "timeout", "failed-precondition"].includes(e.code)) throw e;
+    try { const r = await withTimeout(fn(dbAlt)); useAlt = true; return r; }
+    catch (e2) { if (e2.code === "permission-denied") { useAlt = true; throw e2; } throw e; }
+  }
+}
+
 export async function checkAdmin(user) {
   if (DEMO || !user) return false;
-  try { return (await getDoc(doc(db, "admins", user.uid))).exists(); } catch (e) { return false; }
+  try { return (await run(d => getDoc(doc(d, "admins", user.uid)))).exists(); } catch (e) { return false; }
+}
+
+// Explains why admin access failed: "ok", "missing" or an error code
+export async function adminDiag(user) {
+  if (DEMO) return "demo";
+  try { return (await run(d => getDoc(doc(d, "admins", user.uid)))).exists() ? "ok" : "missing"; }
+  catch (e) { return e.code || e.message || "error"; }
 }
 
 export async function fsList(name) {
   if (DEMO) return [];
-  const snap = await getDocs(collection(db, name));
-  return snap.docs.map(d => ({ id: d.id, ...d.data() }));
+  const snap = await run(d => getDocs(collection(d, name)));
+  return snap.docs.map(x => ({ id: x.id, ...x.data() }));
 }
 
 export async function fsRecent(name, n = 200) {
   if (DEMO) return [];
-  const snap = await getDocs(query(collection(db, name), orderBy("createdAt", "desc"), limit(n)));
-  return snap.docs.map(d => ({ id: d.id, ...d.data() }));
+  const snap = await run(d => getDocs(query(collection(d, name), orderBy("createdAt", "desc"), limit(n))));
+  return snap.docs.map(x => ({ id: x.id, ...x.data() }));
 }
 
 export async function fsSave(name, id, data) {
   if (DEMO) throw new Error("Not available in demo mode.");
-  if (id) { await setDoc(doc(db, name, id), { ...data, updatedAt: serverTimestamp() }, { merge: true }); return id; }
-  const ref = await addDoc(collection(db, name), { ...data, createdAt: serverTimestamp() });
+  if (id) { await run(d => setDoc(doc(d, name, id), { ...data, updatedAt: serverTimestamp() }, { merge: true })); return id; }
+  const ref = await run(d => addDoc(collection(d, name), { ...data, createdAt: serverTimestamp() }));
   return ref.id;
 }
 
 export async function fsDelete(name, id) {
   if (DEMO) throw new Error("Not available in demo mode.");
-  await deleteDoc(doc(db, name, id));
+  await run(d => deleteDoc(doc(d, name, id)));
 }

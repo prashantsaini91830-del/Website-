@@ -4,7 +4,7 @@
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1.0">
 <title>Online Tests | Gyaan Hub</title>
-<link rel="stylesheet" href="style.css?v=4">
+<link rel="stylesheet" href="style.css?v=6">
 </head>
 <body>
 <header class="nav">
@@ -53,7 +53,7 @@
   </div>
 </main>
 <script type="module">
-  import { protectPage, fsList, fsSave } from "./auth.js?v=4";
+  import { protectPage, fsList, fsSave } from "./auth.js?v=6";
 
   const $ = id => document.getElementById(id);
   const esc = s => String(s ?? "").replace(/[&<>"]/g, c => ({ "&": "&amp;", "<": "&lt;", ">": "&gt;", '"': "&quot;" }[c]));
@@ -140,6 +140,6 @@
 
   protectPage(u => { user = u; $("who").textContent = u.email; loadTests(); });
 </script>
-<script type="module" src="layout.js?v=4"></script>
+<script type="module" src="layout.js?v=6"></script>
 </body>
 </html>

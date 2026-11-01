@@ -4,7 +4,7 @@
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1.0">
 <title>Admin Panel | Gyaan Hub</title>
-<link rel="stylesheet" href="style.css?v=4">
+<link rel="stylesheet" href="style.css?v=6">
 </head>
 <body>
 <header class="nav">
@@ -80,8 +80,8 @@
 </main>
 
 <script type="module">
-  import { protectPage, checkAdmin, fsList, fsRecent, fsSave, fsDelete } from "./auth.js?v=4";
-  import { materials as sample } from "./materials.js?v=4";
+  import { protectPage, adminDiag, fsList, fsRecent, fsSave, fsDelete } from "./auth.js?v=6";
+  import { materials as sample } from "./materials.js?v=6";
 
   const $ = id => document.getElementById(id);
   const esc = s => String(s ?? "").replace(/[&<>"]/g, c => ({ "&": "&amp;", "<": "&lt;", ">": "&gt;", '"': "&quot;" }[c]));
@@ -215,9 +215,19 @@
   /* ---------- start ---------- */
   protectPage(async user => {
     $("who").textContent = user.email;
-    if (!(await checkAdmin(user))) {
+    $("deny").className = "msg ok"; $("deny").textContent = "Checking admin access...";
+    const diag = await adminDiag(user);
+    $("deny").className = "msg"; $("deny").textContent = "";
+    if (diag !== "ok") {
+      const why = diag === "missing"
+        ? "The admin document was not found. In Firestore (Data tab) create collection <b>admins</b>, Document ID <b>" + esc(user.uid) + "</b>, field <b>role</b> = <b>admin</b>."
+        : diag === "permission-denied"
+        ? "Firestore rules are blocking access. Open <b>Firestore Database → Rules</b> (not Realtime Database), paste the rules from the README and press Publish."
+        : diag === "timeout"
+        ? "Could not reach Firestore. Open <b>Firebase Console → Firestore Database</b> and make sure a database is created (Singapore is fine), then check your internet and refresh."
+        : "Firestore returned an error: <b>" + esc(diag) + "</b>. Make sure the Firestore database is created and named (default).";
       $("deny").className = "msg err";
-      $("deny").innerHTML = "You do not have admin access. If this is your account, create the document <b>admins/" + esc(user.uid) + "</b> in Firestore (field <b>role</b> = <b>admin</b>) and publish the Firestore rules.";
+      $("deny").innerHTML = "<b>No admin access.</b> " + why + "<br><small>Your UID: " + esc(user.uid) + "</small>";
       return;
     }
     $("app").style.display = "block";
@@ -226,6 +236,6 @@
     catch (e) { note("Could not load data: " + (e.code || e.message) + ". Check that the Firestore rules are published.", "err"); }
   });
 </script>
-<script type="module" src="layout.js?v=4"></script>
+<script type="module" src="layout.js?v=6"></script>
 </body>
 </html>
