@@ -67,7 +67,7 @@ function buildMenu() {
 
   const box = drawer.querySelector("#drawer-auth");
   const signedOut = () => { box.innerHTML = `<a href="login.html" class="btn btn-ghost btn-block">Sign In</a><a href="signup.html" class="btn btn-gold btn-block">Sign Up</a>`; };
-  import("./auth.js?v=6").then(a => a.onUser(u => {
+  import("./auth.js?v=7").then(a => a.onUser(u => {
     if (!u) return signedOut();
     box.innerHTML = `<div class="who">Signed in as<br><b>${esc(u.email || "")}</b></div><button class="btn btn-ghost btn-block" id="drawer-logout">Logout</button>`;
     box.querySelector("#drawer-logout").addEventListener("click", a.logout);

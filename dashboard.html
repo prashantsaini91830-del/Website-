@@ -4,7 +4,7 @@
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1.0">
 <title>Dashboard | Gyaan Hub</title>
-<link rel="stylesheet" href="style.css?v=6">
+<link rel="stylesheet" href="style.css?v=7">
 </head>
 <body>
 <header class="nav">
@@ -35,18 +35,36 @@
     </div>
     <p class="count" id="count"></p>
 
+    <div id="tests-box" style="display:none">
+      <h2 style="font-size:1.4rem;margin:8px 0 14px">📝 Online Tests</h2>
+      <div id="tests-list" class="grid g3" style="margin-bottom:34px"></div>
+      <h2 style="font-size:1.4rem;margin:8px 0 14px">📚 Study Material</h2>
+    </div>
     <div id="list" class="grid g3"></div>
     <div id="empty" class="empty" style="display:none">No results found. Try a different search term or filter.</div>
   </div>
 </main>
 
 <script type="module">
-  import { protectPage, logout, fsList } from "./auth.js?v=6";
-  import { materials as sample, iconFor } from "./materials.js?v=6";
+  import { protectPage, logout, fsList } from "./auth.js?v=7";
+  import { materials as sample, iconFor } from "./materials.js?v=7";
 
   let materials = sample;
   const esc = s => String(s ?? "").replace(/[&<>"]/g, c => ({ "&": "&amp;", "<": "&lt;", ">": "&gt;", '"': "&quot;" }[c]));
   const safe = u => /^https?:\/\//i.test(u || "") ? esc(u) : "#";
+  async function loadTests() {
+    try {
+      const t = (await fsList("tests")).filter(x => x.active !== false && Array.isArray(x.questions) && x.questions.length);
+      if (!t.length) return;
+      document.getElementById("tests-box").style.display = "block";
+      document.getElementById("tests-list").innerHTML = t.map(x => `
+        <a class="card" href="tests.html?start=${encodeURIComponent(x.id)}">
+          <div class="ico">🎯</div>
+          <h3>${esc(x.title)}</h3>
+          <div class="mat"><small>${esc(x.subject || "General")} · ${x.questions.length} questions${x.minutes ? " · " + x.minutes + " min" : ""}</small><span class="tag" style="margin:0">Start</span></div>
+        </a>`).join("");
+    } catch (e) { /* tests are optional here */ }
+  }
   async function loadMaterials() {
     try {
       const r = (await fsList("materials")).filter(x => x.active !== false);
@@ -90,8 +108,9 @@
       d.textContent = "Demo mode: real login will start working as soon as you add your Firebase config in auth.js.";
     }
     loadMaterials().then(render);
+    loadTests();
   });
 </script>
-<script type="module" src="layout.js?v=6"></script>
+<script type="module" src="layout.js?v=7"></script>
 </body>
 </html>

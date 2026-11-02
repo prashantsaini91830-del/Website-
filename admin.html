@@ -4,7 +4,7 @@
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1.0">
 <title>Admin Panel | Gyaan Hub</title>
-<link rel="stylesheet" href="style.css?v=6">
+<link rel="stylesheet" href="style.css?v=7">
 </head>
 <body>
 <header class="nav">
@@ -70,8 +70,13 @@
           <div class="kpi"><b id="r-users">0</b><span>Students</span></div>
         </div>
         <div class="panel">
-          <h2>Latest results</h2>
-          <div class="tbl-wrap"><table class="tbl"><thead><tr><th>Student</th><th>Test</th><th>Score</th><th>Date</th></tr></thead><tbody id="r-body"></tbody></table></div>
+          <h2>Student results</h2>
+          <div class="toolbar" style="margin:0 0 14px">
+            <input id="r-search" type="search" placeholder="Search by name or email">
+            <select id="r-filter"><option value="">All tests</option></select>
+            <select id="r-sort"><option value="new">Latest first</option><option value="high">Highest score first</option></select>
+          </div>
+          <div class="tbl-wrap"><table class="tbl"><thead><tr><th>Rank</th><th>Name</th><th>Email</th><th>Test</th><th>Score</th><th>%</th><th>Date</th></tr></thead><tbody id="r-body"></tbody></table></div>
           <button class="btn btn-ghost" id="r-csv" style="margin-top:14px">Download CSV</button>
         </div>
       </section>
@@ -80,8 +85,8 @@
 </main>
 
 <script type="module">
-  import { protectPage, adminDiag, fsList, fsRecent, fsSave, fsDelete } from "./auth.js?v=6";
-  import { materials as sample } from "./materials.js?v=6";
+  import { protectPage, adminDiag, fsList, fsRecent, fsSave, fsDelete } from "./auth.js?v=7";
+  import { materials as sample } from "./materials.js?v=7";
 
   const $ = id => document.getElementById(id);
   const esc = s => String(s ?? "").replace(/[&<>"]/g, c => ({ "&": "&amp;", "<": "&lt;", ">": "&gt;", '"': "&quot;" }[c]));
@@ -196,17 +201,42 @@
 
   /* ---------- results ---------- */
   const when = r => { try { return r.createdAt.toDate().toLocaleString(); } catch (e) { return ""; } };
-  async function loadResults() {
-    try { results = await fsRecent("results", 200); } catch (e) { return note("Could not load results: " + (e.code || e.message), "err"); }
-    const pct = results.map(r => r.total ? r.score / r.total * 100 : 0);
-    $("r-n").textContent = results.length;
-    $("r-avg").textContent = (results.length ? Math.round(pct.reduce((a, b) => a + b, 0) / results.length) : 0) + "%";
-    $("r-users").textContent = new Set(results.map(r => r.uid)).size;
-    $("r-body").innerHTML = results.length ? results.map(r => `<tr><td>${esc(r.email)}</td><td>${esc(r.testTitle)}</td><td>${r.score}/${r.total}</td><td>${esc(when(r))}</td></tr>`).join("") : '<tr><td colspan="4">No results yet.</td></tr>';
+  const nameOf = r => r.name || (r.email || "").split("@")[0];
+  let shown = [];
+
+  // rank of a result among the best score of every student for the same test
+  function addRanks(rows) {
+    const best = {};
+    rows.forEach(r => { const k = r.testId; (best[k] = best[k] || {})[r.uid] = Math.max((best[k] || {})[r.uid] || 0, r.score); });
+    return rows.map(r => ({ ...r, rk: 1 + Object.entries(best[r.testId]).filter(([u, s]) => u !== r.uid && s > r.score).length }));
   }
+
+  function drawResults() {
+    const f = $("r-filter").value, q = $("r-search").value.trim().toLowerCase(), sort = $("r-sort").value;
+    let rows = addRanks(results).filter(r => (!f || r.testId === f) && (!q || (nameOf(r) + " " + (r.email || "")).toLowerCase().includes(q)));
+    if (sort === "high") rows.sort((a, b) => (b.score / (b.total || 1)) - (a.score / (a.total || 1)));
+    shown = rows;
+    const pct = rows.map(r => r.total ? r.score / r.total * 100 : 0);
+    $("r-n").textContent = rows.length;
+    $("r-avg").textContent = (rows.length ? Math.round(pct.reduce((a, b) => a + b, 0) / rows.length) : 0) + "%";
+    $("r-users").textContent = new Set(rows.map(r => r.uid)).size;
+    $("r-body").innerHTML = rows.length ? rows.map(r => `<tr><td><b>#${r.rk}</b></td><td>${esc(nameOf(r))}</td><td>${esc(r.email)}</td><td>${esc(r.testTitle)}</td><td>${r.score}/${r.total}</td><td>${r.total ? Math.round(r.score / r.total * 100) : 0}%</td><td>${esc(when(r))}</td></tr>`).join("") : '<tr><td colspan="7">No results yet.</td></tr>';
+  }
+
+  async function loadResults() {
+    try { results = await fsRecent("results", 300); } catch (e) { return note("Could not load results: " + (e.code || e.message), "err"); }
+    const seen = {}; results.forEach(r => { seen[r.testId] = r.testTitle; });
+    const cur = $("r-filter").value;
+    $("r-filter").innerHTML = '<option value="">All tests</option>' + Object.entries(seen).map(([id, t]) => `<option value="${esc(id)}">${esc(t)}</option>`).join("");
+    $("r-filter").value = seen[cur] ? cur : "";
+    drawResults();
+  }
+  ["r-filter", "r-sort"].forEach(i => $(i).addEventListener("change", drawResults));
+  $("r-search").addEventListener("input", drawResults);
+
   $("r-csv").addEventListener("click", () => {
     const q = v => '"' + String(v ?? "").replace(/"/g, '""') + '"';
-    const rows = [["Student", "Test", "Score", "Total", "Date"], ...results.map(r => [r.email, r.testTitle, r.score, r.total, when(r)])];
+    const rows = [["Rank", "Name", "Email", "Test", "Score", "Total", "Percent", "Date"], ...shown.map(r => [r.rk, nameOf(r), r.email, r.testTitle, r.score, r.total, r.total ? Math.round(r.score / r.total * 100) : 0, when(r)])];
     const blob = new Blob([rows.map(r => r.map(q).join(",")).join("\n")], { type: "text/csv" });
     const a = Object.assign(document.createElement("a"), { href: URL.createObjectURL(blob), download: "gyaan-hub-results.csv" });
     a.click(); URL.revokeObjectURL(a.href);
@@ -236,6 +266,6 @@
     catch (e) { note("Could not load data: " + (e.code || e.message) + ". Check that the Firestore rules are published.", "err"); }
   });
 </script>
-<script type="module" src="layout.js?v=6"></script>
+<script type="module" src="layout.js?v=7"></script>
 </body>
 </html>

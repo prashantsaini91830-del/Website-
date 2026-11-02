@@ -3,11 +3,11 @@ import { initializeApp } from "https://www.gstatic.com/firebasejs/10.14.1/fireba
 import {
   getAuth, onAuthStateChanged, signOut,
   signInWithEmailAndPassword, createUserWithEmailAndPassword,
-  GoogleAuthProvider, signInWithPopup, sendPasswordResetEmail
+  GoogleAuthProvider, signInWithPopup, sendPasswordResetEmail, updateProfile
 } from "https://www.gstatic.com/firebasejs/10.14.1/firebase-auth.js";
 import {
   getFirestore, collection, doc, getDoc, getDocs, setDoc, addDoc, deleteDoc,
-  query, orderBy, limit, serverTimestamp
+  query, where, orderBy, limit, serverTimestamp
 } from "https://www.gstatic.com/firebasejs/10.14.1/firebase-firestore.js";
 
 const firebaseConfig = {
@@ -120,7 +120,9 @@ export function setupSignup() {
   if (!DEMO) onAuthStateChanged(auth, u => { if (u) location.href = "dashboard.html"; });
   wireForm(async (email, password) => {
     if (DEMO) return demoLogin(email);
-    await createUserWithEmailAndPassword(auth, email, password);
+    const name = (document.getElementById("name")?.value || "").trim();
+    const cred = await createUserWithEmailAndPassword(auth, email, password);
+    if (name) { try { await updateProfile(cred.user, { displayName: name }); } catch (e) {} }
     location.href = "verify.html";
   });
 }
@@ -152,6 +154,11 @@ export function protectPage(cb, opts = {}) {
     if (requireVerified && !isVerified(user)) { location.href = "verify.html"; return; }
     cb(user, false);
   });
+}
+
+export async function setDisplayName(name) {
+  if (DEMO || !auth.currentUser) return;
+  await updateProfile(auth.currentUser, { displayName: name });
 }
 
 export function onUser(cb) {
@@ -216,4 +223,21 @@ export async function fsSave(name, id, data) {
 export async function fsDelete(name, id) {
   if (DEMO) throw new Error("Not available in demo mode.");
   await run(d => deleteDoc(doc(d, name, id)));
+}
+
+export async function fsGet(name, id) {
+  if (DEMO) return null;
+  const snap = await run(d => getDoc(doc(d, name, id)));
+  return snap.exists() ? { id: snap.id, ...snap.data() } : null;
+}
+
+export async function fsSet(name, id, data) {
+  if (DEMO) throw new Error("Not available in demo mode.");
+  await run(d => setDoc(doc(d, name, id), { ...data, updatedAt: serverTimestamp() }));
+}
+
+export async function fsQuery(name, field, value) {
+  if (DEMO) return [];
+  const snap = await run(d => getDocs(query(collection(d, name), where(field, "==", value))));
+  return snap.docs.map(x => ({ id: x.id, ...x.data() }));
 }

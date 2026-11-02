@@ -275,3 +275,13 @@ body.light{--bg:#ffffff;--text:#0f0f0f;--muted:#5f5f66;--card:#f6f6f8;--border:#
 .score{font-family:'Fraunces',Georgia,serif;font-size:3.2rem;text-align:center}
 .review{margin-top:22px}
 .review .qtext{font-size:1.05rem;margin-bottom:10px}
+
+.toolbar select{padding:12px 16px;border-radius:999px;border:1px solid var(--border);background:var(--card);color:var(--text);font:inherit;font-size:.9rem;outline:none}
+.toolbar select option{background:#0d1330}
+
+/* ---- rank / result ---- */
+.rankbox{display:inline-block;margin:0 auto 14px;padding:10px 20px;border-radius:999px;background:linear-gradient(135deg,rgba(230,184,92,.2),rgba(109,124,255,.2));border:1px solid var(--border);font-size:1.05rem}
+.rankbox b{color:var(--gold2);font-size:1.25rem}
+.mailnote{font-size:.85rem;color:var(--muted);margin:0 0 16px}
+.sel{width:100%;max-width:320px;padding:10px 14px;border-radius:12px;border:1px solid var(--border);background:rgba(7,11,26,.6);color:var(--text);font:inherit;margin-bottom:14px}
+.sel option{background:#0d1330}

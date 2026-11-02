@@ -57,16 +57,31 @@ Push to GitHub and enable **Settings > Pages** on the `main` branch to host the 
 ```
 service cloud.firestore {
   match /databases/{database}/documents {
-    function signedIn() { return request.auth != null; }
+    function signedIn() {
+      return request.auth != null;
+    }
     function isAdmin() {
       return signedIn() && exists(/databases/$(database)/documents/admins/$(request.auth.uid));
     }
-    match /materials/{id} { allow read: if signedIn(); allow write: if isAdmin(); }
-    match /tests/{id}     { allow read: if signedIn(); allow write: if isAdmin(); }
+    match /materials/{id} {
+      allow read: if signedIn();
+      allow write: if isAdmin();
+    }
+    match /tests/{id} {
+      allow read: if signedIn();
+      allow write: if isAdmin();
+    }
     match /results/{id} {
       allow create: if signedIn() && request.resource.data.uid == request.auth.uid;
       allow read: if isAdmin() || (signedIn() && resource.data.uid == request.auth.uid);
       allow update, delete: if isAdmin();
+    }
+    match /scores/{id} {
+      allow read: if signedIn();
+      allow create, update: if signedIn()
+        && request.resource.data.uid == request.auth.uid
+        && id == request.resource.data.testId + "_" + request.auth.uid;
+      allow delete: if isAdmin();
     }
     match /admins/{id} {
       allow read: if signedIn() && request.auth.uid == id;

@@ -4,7 +4,7 @@
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1.0">
 <title>Verify Email | Gyaan Hub</title>
-<link rel="stylesheet" href="style.css?v=6">
+<link rel="stylesheet" href="style.css?v=7">
 </head>
 <body>
 <div class="auth-wrap">
@@ -23,13 +23,13 @@
     </form>
     <p class="alt">Didn't get the email? <button type="button" class="linkbtn" id="resend" disabled>Resend code</button></p>
     <p class="alt" style="margin-top:10px">Check your spam folder too. The code is valid for 10 minutes.</p>
-    <p class="alt" style="font-size:.72rem;opacity:.6">build 6</p>
+    <p class="alt" style="font-size:.72rem;opacity:.6">build 7</p>
     <p class="alt"><a href="#" id="logout" style="color:var(--muted);font-weight:500">Use a different account</a></p>
   </div>
 </div>
 
 <script type="module">
-  import { onUser, isVerified, markVerified, logout } from "./auth.js?v=6";
+  import { onUser, isVerified, markVerified, logout } from "./auth.js?v=7";
 
   // ---- EmailJS settings ----
   const EMAILJS = {
@@ -151,6 +151,6 @@
     }
   });
 </script>
-<script type="module" src="layout.js?v=6"></script>
+<script type="module" src="layout.js?v=7"></script>
 </body>
 </html>

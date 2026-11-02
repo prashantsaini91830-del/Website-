@@ -4,7 +4,7 @@
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1.0">
 <title>Online Tests | Gyaan Hub</title>
-<link rel="stylesheet" href="style.css?v=6">
+<link rel="stylesheet" href="style.css?v=7">
 </head>
 <body>
 <header class="nav">
@@ -21,6 +21,12 @@
       <h1>Online Tests 📝</h1>
       <p class="sub">Pick a test, answer within the time limit and see your score instantly.</p>
       <div id="list-msg" class="msg"></div>
+      <div id="name-box" class="panel" style="display:none">
+        <h2>Your name</h2>
+        <p class="sub" style="margin-bottom:14px">Please enter your full name. It will be shown with your result.</p>
+        <div class="field"><input id="name-input" type="text" placeholder="Your full name" autocomplete="name"></div>
+        <button class="btn btn-gold" id="name-save">Save name</button>
+      </div>
       <div id="tests" class="grid g3"></div>
       <div id="empty" class="empty" style="display:none">No tests are available yet. Please check back soon.</div>
     </div>
@@ -41,7 +47,9 @@
       <div class="panel" style="text-align:center">
         <p class="sub" style="margin-bottom:6px" id="s-title"></p>
         <div class="score"><span class="gold" id="s-score"></span></div>
-        <p id="s-line" style="color:var(--muted);margin:6px 0 18px"></p>
+        <p id="s-line" style="color:var(--muted);margin:6px 0 14px"></p>
+        <div id="s-rank" class="rankbox" style="display:none"></div>
+        <p id="s-mail" class="mailnote"></p>
         <div id="s-msg" class="msg"></div>
         <div class="acts" style="justify-content:center">
           <button class="btn btn-gold" id="s-retry">Retake test</button>
@@ -53,11 +61,14 @@
   </div>
 </main>
 <script type="module">
-  import { protectPage, fsList, fsSave } from "./auth.js?v=6";
+  import { protectPage, fsList, fsSave, fsGet, fsSet, fsQuery, setDisplayName } from "./auth.js?v=7";
+
+  // Result email (EmailJS). Create a second template and paste its ID below.
+  const EMAILJS = { serviceId: "service_cvlhnic", publicKey: "Lrc2aesJF7DoGwr56", resultTemplateId: "PASTE_RESULT_TEMPLATE_ID" };
 
   const $ = id => document.getElementById(id);
   const esc = s => String(s ?? "").replace(/[&<>"]/g, c => ({ "&": "&amp;", "<": "&lt;", ">": "&gt;", '"': "&quot;" }[c]));
-  let user, tests = [], cur = null, answers = [], idx = 0, timer = null, endAt = 0;
+  let user, name = "", tests = [], cur = null, answers = [], idx = 0, timer = null, endAt = 0;
 
   const view = v => { ["v-list", "v-run", "v-result"].forEach(n => $(n).style.display = n === v ? "block" : "none"); window.scrollTo(0, 0); };
 
@@ -78,9 +89,15 @@
         <p style="margin-top:6px">${t.questions.length} questions${t.minutes ? " · " + t.minutes + " min" : ""}</p>
         <button class="btn btn-gold btn-block" style="margin-top:16px" data-id="${esc(t.id)}">Start test</button>
       </div>`).join("");
+    const sid = new URLSearchParams(location.search).get("start");
+    if (sid && tests.some(t => t.id === sid)) { history.replaceState(null, "", "tests.html"); start(sid); }
   }
 
   function start(id) {
+    if (!name) {
+      $("list-msg").className = "msg err"; $("list-msg").textContent = "Please enter your name first.";
+      $("name-box").style.display = "block"; window.scrollTo(0, 0); return;
+    }
     cur = tests.find(t => t.id === id); if (!cur) return;
     answers = new Array(cur.questions.length).fill(-1); idx = 0;
     $("r-title").textContent = cur.title;
@@ -123,11 +140,50 @@
         ${answers[i] < 0 ? '<small style="color:var(--muted)">Not answered</small>' : ""}
       </div>`).join("");
     $("s-msg").className = "msg"; $("s-msg").textContent = "";
+    $("s-rank").style.display = "none"; $("s-mail").textContent = "";
     view("v-result");
+
+    // 1) best score + rank among all students who took this test
+    let rank = null, rankTotal = null;
     try {
-      await fsSave("results", null, { uid: user.uid, email: user.email, testId: cur.id, testTitle: cur.title, subject: cur.subject || "", score, total: n });
+      const sid = cur.id + "_" + user.uid;
+      const prev = await fsGet("scores", sid);
+      if (!prev || prev.score < score) await fsSet("scores", sid, { uid: user.uid, name, testId: cur.id, testTitle: cur.title, score, total: n, percent: pct });
+      const best = Math.max(score, prev ? prev.score : 0);
+      const all = await fsQuery("scores", "testId", cur.id);
+      const others = all.filter(s => s.uid !== user.uid);
+      rankTotal = others.length + 1;
+      rank = 1 + others.filter(s => s.score > best).length;
+      $("s-rank").innerHTML = "🏆 Rank <b>#" + rank + "</b> of " + rankTotal + " student" + (rankTotal > 1 ? "s" : "") + (best > score ? " (based on your best score)" : "");
+      $("s-rank").style.display = "inline-block";
+    } catch (e) { /* rank is optional */ }
+
+    // 2) save the full result for the admin panel
+    try {
+      await fsSave("results", null, { uid: user.uid, email: user.email, name, testId: cur.id, testTitle: cur.title, subject: cur.subject || "", score, total: n, percent: pct, rank: rank || 0, rankTotal: rankTotal || 0 });
     } catch (e) {
       $("s-msg").className = "msg err"; $("s-msg").textContent = "Your result could not be saved, but your score is shown above.";
+    }
+
+    // 3) email the result to the student's registered address
+    if (!EMAILJS.resultTemplateId.startsWith("PASTE_")) {
+      try {
+        const res = await fetch("https://api.emailjs.com/api/v1.0/email/send", {
+          method: "POST", headers: { "Content-Type": "application/json" },
+          body: JSON.stringify({
+            service_id: EMAILJS.serviceId, template_id: EMAILJS.resultTemplateId, user_id: EMAILJS.publicKey,
+            template_params: {
+              to_email: user.email, email: user.email, name: name || user.email.split("@")[0],
+              test_title: cur.title, subject_name: cur.subject || "General",
+              score, total: n, percent: pct,
+              rank: rank ? "#" + rank : "-", rank_total: rankTotal || "-",
+              date: new Date().toLocaleString(), site_url: location.origin
+            }
+          })
+        });
+        if (!res.ok) throw new Error(await res.text());
+        $("s-mail").textContent = "✉️ Your result was emailed to " + user.email;
+      } catch (e) { $("s-mail").textContent = "We could not email your result, but it is saved on the site."; }
     }
   }
 
@@ -138,8 +194,22 @@
   $("s-retry").addEventListener("click", () => start(cur.id));
   $("s-back").addEventListener("click", () => view("v-list"));
 
-  protectPage(u => { user = u; $("who").textContent = u.email; loadTests(); });
+  $("name-save").addEventListener("click", async () => {
+    const v = $("name-input").value.trim();
+    if (v.length < 2) { $("list-msg").className = "msg err"; $("list-msg").textContent = "Please enter your full name."; return; }
+    name = v;
+    try { localStorage.setItem("gyaan_name_" + user.uid, v); } catch (e) {}
+    try { await setDisplayName(v); } catch (e) {}
+    $("name-box").style.display = "none"; $("list-msg").className = "msg"; $("list-msg").textContent = "";
+  });
+
+  protectPage(u => {
+    user = u; $("who").textContent = u.email;
+    name = u.displayName || localStorage.getItem("gyaan_name_" + u.uid) || "";
+    $("name-box").style.display = name ? "none" : "block";
+    loadTests();
+  });
 </script>
-<script type="module" src="layout.js?v=6"></script>
+<script type="module" src="layout.js?v=7"></script>
 </body>
 </html>

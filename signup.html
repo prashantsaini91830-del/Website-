@@ -4,7 +4,7 @@
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1.0">
 <title>Sign Up | Gyaan Hub</title>
-<link rel="stylesheet" href="style.css?v=6">
+<link rel="stylesheet" href="style.css?v=7">
 </head>
 <body>
 <div class="auth-wrap">
@@ -14,6 +14,7 @@
     <p class="sub">Sign up for free and get instant access to study materials</p>
     <div id="msg" class="msg"></div>
     <form id="form">
+      <div class="field"><label for="name">Full name</label><input id="name" name="fullname" type="text" placeholder="Your full name" required minlength="2" autocomplete="name"></div>
       <div class="field"><label for="email">Email address</label><input id="email" name="email" type="email" placeholder="you@example.com" required autocomplete="email"></div>
       <div class="field"><label for="password">Password (min 6 characters)</label><input id="password" name="password" type="password" placeholder="••••••••" required minlength="6" autocomplete="new-password"></div>
       <label class="check"><input type="checkbox" id="agree" required><span>I agree to the <a href="terms.html" target="_blank" rel="noopener">Terms of Use</a> and <a href="privacy.html" target="_blank" rel="noopener">Privacy Policy</a>.</span></label>
@@ -40,9 +41,9 @@
   });
 </script>
 <script type="module">
-  import { setupSignup } from "./auth.js?v=6";
+  import { setupSignup } from "./auth.js?v=7";
   setupSignup();
 </script>
-<script type="module" src="layout.js?v=6"></script>
+<script type="module" src="layout.js?v=7"></script>
 </body>
 </html>
