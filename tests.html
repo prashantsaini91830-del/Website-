@@ -63,8 +63,8 @@
 <script type="module">
   import { protectPage, fsList, fsSave, fsGet, fsSet, fsQuery, setDisplayName } from "./auth.js?v=7";
 
-  // Result email (EmailJS). Create a second template and paste its ID below.
-  const EMAILJS = { serviceId: "service_cvlhnic", publicKey: "Lrc2aesJF7DoGwr56", resultTemplateId: "PASTE_RESULT_TEMPLATE_ID" };
+  // Result email: uses the second EmailJS account (the OTP email in verify.html uses the first one)
+  const EMAILJS = { serviceId: "service_mjgqhwh", publicKey: "d2kmZ1Cg5dV8cwq6a", resultTemplateId: "template_wk41h39" };
 
   const $ = id => document.getElementById(id);
   const esc = s => String(s ?? "").replace(/[&<>"]/g, c => ({ "&": "&amp;", "<": "&lt;", ">": "&gt;", '"': "&quot;" }[c]));
