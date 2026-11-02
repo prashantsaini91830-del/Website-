@@ -167,6 +167,7 @@ export function onUser(cb) {
 }
 
 export async function logout() {
+  try { Object.keys(localStorage).filter(k => k.startsWith("gyaan_cache_")).forEach(k => localStorage.removeItem(k)); } catch (e) {}
   if (DEMO) localStorage.removeItem(DEMO_KEY);
   else await signOut(auth);
   location.href = "login.html";
@@ -175,18 +176,42 @@ export async function logout() {
 // ---------- Firestore helpers (admin panel, tests, materials) ----------
 // Every call has an 8 second limit so a page never stays blank. If the "(default)"
 // database cannot be reached, the same call is retried on a database named "default".
-let useAlt = false;
+const PREF_KEY = "gyaan_db";
+let pref = null;
+try { pref = localStorage.getItem(PREF_KEY); } catch (e) {}
+const setPref = p => { pref = p; try { localStorage.setItem(PREF_KEY, p); } catch (e) {} };
 const withTimeout = (p, ms = 8000) => Promise.race([p, new Promise((_, rej) => setTimeout(() => rej({ code: "timeout" }), ms))]);
+const RETRY = ["not-found", "unavailable", "timeout", "failed-precondition"];
 
-async function run(fn) {
+// Remembers which database answers (the "(default)" one or one named "default"),
+// so a page refresh does not wait for the wrong one again.
+async function run(fn, isWrite = false) {
   if (DEMO) throw { code: "demo" };
-  if (useAlt) return withTimeout(fn(dbAlt));
-  try { return await withTimeout(fn(dbMain)); }
-  catch (e) {
-    if (!["not-found", "unavailable", "timeout", "failed-precondition"].includes(e.code)) throw e;
-    try { const r = await withTimeout(fn(dbAlt)); useAlt = true; return r; }
-    catch (e2) { if (e2.code === "permission-denied") { useAlt = true; throw e2; } throw e; }
+  const dbs = { main: dbMain, alt: dbAlt };
+  if (!pref && !isWrite) {
+    // first visit on this device: ask both at once, the first real answer wins
+    const attempts = ["main", "alt"].map(k => withTimeout(fn(dbs[k])).then(r => { setPref(k); return r; }));
+    try { return await Promise.any(attempts); }
+    catch (agg) { const errs = agg.errors || []; throw errs.find(e => e.code === "permission-denied") || errs[0] || agg; }
   }
+  const first = pref || "main", second = first === "main" ? "alt" : "main";
+  try { const r = await withTimeout(fn(dbs[first])); setPref(first); return r; }
+  catch (e) {
+    if (!RETRY.includes(e.code)) throw e;
+    try { const r = await withTimeout(fn(dbs[second])); setPref(second); return r; }
+    catch (e2) { if (e2.code === "permission-denied") { setPref(second); throw e2; } throw e; }
+  }
+}
+
+// Instant page loads: the last list is kept on this device and shown at once,
+// then replaced by fresh data from Firestore.
+export function cacheGet(name) {
+  try { return JSON.parse(localStorage.getItem("gyaan_cache_" + name) || "null"); } catch (e) { return null; }
+}
+export async function fsListFresh(name) {
+  const rows = await fsList(name);
+  try { localStorage.setItem("gyaan_cache_" + name, JSON.stringify(rows)); } catch (e) {}
+  return rows;
 }
 
 export async function checkAdmin(user) {
@@ -215,14 +240,14 @@ export async function fsRecent(name, n = 200) {
 
 export async function fsSave(name, id, data) {
   if (DEMO) throw new Error("Not available in demo mode.");
-  if (id) { await run(d => setDoc(doc(d, name, id), { ...data, updatedAt: serverTimestamp() }, { merge: true })); return id; }
-  const ref = await run(d => addDoc(collection(d, name), { ...data, createdAt: serverTimestamp() }));
+  if (id) { await run(d => setDoc(doc(d, name, id), { ...data, updatedAt: serverTimestamp() }, { merge: true }), true); return id; }
+  const ref = await run(d => addDoc(collection(d, name), { ...data, createdAt: serverTimestamp() }), true);
   return ref.id;
 }
 
 export async function fsDelete(name, id) {
   if (DEMO) throw new Error("Not available in demo mode.");
-  await run(d => deleteDoc(doc(d, name, id)));
+  await run(d => deleteDoc(doc(d, name, id)), true);
 }
 
 export async function fsGet(name, id) {
@@ -233,7 +258,7 @@ export async function fsGet(name, id) {
 
 export async function fsSet(name, id, data) {
   if (DEMO) throw new Error("Not available in demo mode.");
-  await run(d => setDoc(doc(d, name, id), { ...data, updatedAt: serverTimestamp() }));
+  await run(d => setDoc(doc(d, name, id), { ...data, updatedAt: serverTimestamp() }), true);
 }
 
 export async function fsQuery(name, field, value) {

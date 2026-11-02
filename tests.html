@@ -4,7 +4,7 @@
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1.0">
 <title>Online Tests | Gyaan Hub</title>
-<link rel="stylesheet" href="style.css?v=7">
+<link rel="stylesheet" href="style.css?v=8">
 </head>
 <body>
 <header class="nav">
@@ -61,7 +61,7 @@
   </div>
 </main>
 <script type="module">
-  import { protectPage, fsList, fsSave, fsGet, fsSet, fsQuery, setDisplayName } from "./auth.js?v=7";
+  import { protectPage, fsList, fsListFresh, cacheGet, fsSave, fsGet, fsSet, fsQuery, setDisplayName } from "./auth.js?v=8";
 
   // Result email: uses the second EmailJS account (the OTP email in verify.html uses the first one)
   const EMAILJS = { serviceId: "service_mjgqhwh", publicKey: "d2kmZ1Cg5dV8cwq6a", resultTemplateId: "template_wk41h39" };
@@ -72,14 +72,8 @@
 
   const view = v => { ["v-list", "v-run", "v-result"].forEach(n => $(n).style.display = n === v ? "block" : "none"); window.scrollTo(0, 0); };
 
-  async function loadTests() {
-    try {
-      tests = (await fsList("tests")).filter(t => t.active !== false && Array.isArray(t.questions) && t.questions.length);
-    } catch (e) {
-      tests = [];
-      $("list-msg").className = "msg err";
-      $("list-msg").textContent = "Could not load tests. Please try again later.";
-    }
+  const usable = rows => (rows || []).filter(t => t.active !== false && Array.isArray(t.questions) && t.questions.length);
+  function showList() {
     $("empty").style.display = tests.length ? "none" : "block";
     $("tests").innerHTML = tests.map(t => `
       <div class="card">
@@ -89,8 +83,27 @@
         <p style="margin-top:6px">${t.questions.length} questions${t.minutes ? " · " + t.minutes + " min" : ""}</p>
         <button class="btn btn-gold btn-block" style="margin-top:16px" data-id="${esc(t.id)}">Start test</button>
       </div>`).join("");
+  }
+  let autoStarted = false;
+  function autoStart() {
     const sid = new URLSearchParams(location.search).get("start");
-    if (sid && tests.some(t => t.id === sid)) { history.replaceState(null, "", "tests.html"); start(sid); }
+    if (!autoStarted && sid && tests.some(t => t.id === sid)) { autoStarted = true; history.replaceState(null, "", "tests.html"); start(sid); }
+  }
+  async function loadTests() {
+    const cached = usable(cacheGet("tests"));
+    if (cached.length) { tests = cached; showList(); autoStart(); }
+    else $("tests").innerHTML = '<div class="skel"></div><div class="skel"></div><div class="skel"></div>';
+    try {
+      tests = usable(await fsListFresh("tests"));
+    } catch (e) {
+      if (!cached.length) {
+        tests = [];
+        $("list-msg").className = "msg err";
+        $("list-msg").textContent = "Could not load tests. Please try again later.";
+      }
+    }
+    if (!autoStarted || $("v-list").style.display !== "none") showList();
+    autoStart();
   }
 
   function start(id) {
@@ -210,6 +223,6 @@
     loadTests();
   });
 </script>
-<script type="module" src="layout.js?v=7"></script>
+<script type="module" src="layout.js?v=8"></script>
 </body>
 </html>
