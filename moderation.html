@@ -1,0 +1,81 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Community reports | Gyaan Hub</title>
+<link rel="stylesheet" href="style.css?v=9">
+<script src="site-config.js?v=9"></script>
+<script src="theme.js?v=9"></script>
+</head>
+<body>
+<header class="nav">
+  <div class="container">
+    <a href="index.html" class="logo"><i>G</i> Gyaan Hub</a>
+    <div class="nav-cta"><a href="admin.html" class="btn btn-ghost">🛠️ Admin</a></div>
+  </div>
+</header>
+
+<main class="cm-wrap">
+  <div class="container">
+    <h1>🚩 Community reports</h1>
+    <p class="cm-sub">Reports sent by students. Only admins can open this page.</p>
+    <div class="cm-tabs"><button class="chip on" data-f="open">Open</button><button class="chip" data-f="resolved">Resolved</button></div>
+    <div id="out" class="cm-list"><div class="skel"></div></div>
+  </div>
+</main>
+
+<script type="module">
+  import { protectPage, checkAdmin, fsRecent, fsSetPath, fsDelete, toMs } from "./auth.js?v=9";
+  import { esc, errText, toast } from "./community.js?v=9";
+  const $ = id => document.getElementById(id);
+  let rows = [], filter = "open";
+
+  function render() {
+    const list = rows.filter(r => (r.status || "open") === filter);
+    $("out").innerHTML = list.length ? list.map(r => `
+      <div class="panel" style="margin:0">
+        <div style="display:flex;justify-content:space-between;gap:12px;flex-wrap:wrap">
+          <div><b>${esc(r.reportedName || "Student")}</b> was reported by <b>${esc(r.reporterName || "Student")}</b><br>
+            <small style="color:var(--muted)">${esc(r.reason || "")} · ${r.createdAt ? new Date(toMs(r.createdAt)).toLocaleString() : ""}</small></div>
+          <div class="cm-actions">
+            <a class="btn btn-ghost" href="profile.html?u=${encodeURIComponent(r.reported)}" target="_blank" rel="noopener">View profile</a>
+            <button class="btn btn-ghost" data-a="clear" data-id="${esc(r.id)}" data-u="${esc(r.reported)}">Clear photo &amp; bio</button>
+            ${(r.status || "open") === "open" ? `<button class="btn btn-gold" data-a="resolve" data-id="${esc(r.id)}">Mark resolved</button>` : ""}
+            <button class="btn btn-ghost" data-a="del" data-id="${esc(r.id)}">Delete</button>
+          </div></div>
+        ${r.details ? `<p style="margin:10px 0 0">${esc(r.details)}</p>` : ""}
+        ${(r.evidence || []).length ? `<div style="margin-top:10px;font-size:.88rem;color:var(--muted)"><b>Chat evidence</b>${r.evidence.map(e => `<div>${e.from === "reported" ? "⚠️ Reported" : "Reporter"}: ${esc(e.text)}</div>`).join("")}</div>` : ""}
+      </div>`).join("") : `<div class="empty">No ${filter} reports.</div>`;
+  }
+
+  document.querySelectorAll("[data-f]").forEach(b => b.addEventListener("click", () => {
+    filter = b.dataset.f;
+    document.querySelectorAll("[data-f]").forEach(x => x.classList.toggle("on", x === b));
+    render();
+  }));
+  document.addEventListener("click", async e => {
+    const b = e.target.closest("[data-a]"); if (!b) return;
+    const id = b.dataset.id;
+    try {
+      if (b.dataset.a === "resolve") { await fsSetPath(["communityReports", id], { status: "resolved" }); rows.find(r => r.id === id).status = "resolved"; }
+      else if (b.dataset.a === "del") { if (!confirm("Delete this report?")) return; await fsDelete("communityReports", id); rows = rows.filter(r => r.id !== id); }
+      else if (b.dataset.a === "clear") {
+        if (!confirm("Remove this student's photo and bio?")) return;
+        await fsSetPath(["profiles", b.dataset.u], { avatar: "" });
+        await fsSetPath(["profileStats", b.dataset.u], { avatar: "", bio: "" });
+        toast("Photo and bio cleared", 2500);
+      }
+      render();
+    } catch (err) { toast(errText(err), 6000); }
+  });
+
+  protectPage(async user => {
+    if (!(await checkAdmin(user))) { $("out").innerHTML = `<div class="empty">Admins only.</div>`; return; }
+    try { rows = await fsRecent("communityReports", 200); render(); }
+    catch (e) { $("out").innerHTML = `<div class="empty">${esc(errText(e))}</div>`; }
+  });
+</script>
+<script type="module" src="layout.js?v=9"></script>
+</body>
+</html>

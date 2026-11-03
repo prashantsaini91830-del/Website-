@@ -1,0 +1,242 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Profile | Gyaan Hub</title>
+<link rel="stylesheet" href="style.css?v=9">
+<script src="site-config.js?v=9"></script>
+<script src="theme.js?v=9"></script>
+</head>
+<body>
+<header class="nav">
+  <div class="container">
+    <a href="index.html" class="logo"><i>G</i> Gyaan Hub</a>
+    <div class="nav-cta">
+      <a href="community.html" class="btn btn-ghost">🏆 Leaderboard</a>
+      <a href="messages.html" class="btn btn-ghost">💬 Messages</a>
+    </div>
+  </div>
+</header>
+
+<main class="cm-wrap">
+  <div class="container" id="app"><div class="skel"></div><div class="skel"></div></div>
+</main>
+
+<script type="module">
+  import { protectPage } from "./auth.js?v=9";
+  import * as C from "./community.js?v=9";
+  const $ = id => document.getElementById(id);
+  const { esc } = C;
+  const params = new URLSearchParams(location.search);
+  let me, myProf, prof, uid, isMe, rel, blocked, stats, rank, fers, fing, msgOk;
+
+  /* ---------- tiny modal helper ---------- */
+  function modal(html) {
+    const m = document.createElement("div");
+    m.className = "cm-modal";
+    m.innerHTML = `<div class="cm-card" role="dialog" aria-modal="true">${html}</div>`;
+    document.body.appendChild(m);
+    document.body.classList.add("noscroll");
+    const close = () => { m.remove(); document.body.classList.remove("noscroll"); };
+    m.addEventListener("click", e => { if (e.target === m) close(); });
+    m.querySelectorAll(".cm-x").forEach(b => b.addEventListener("click", close));
+    return { el: m, close };
+  }
+  const say = (el, text, type = "") => { el.className = "cm-msg " + type; el.textContent = text; };
+
+  /* ---------- load everything for the profile being viewed ---------- */
+  async function load() {
+    prof = await C.getProfile(uid, true);
+    if (!prof) { $("app").innerHTML = `<div class="panel cm-lock"><div class="big">🤷</div><h2>Profile not found</h2><p class="cm-sub">This student has not set up a community profile yet.</p><a class="btn btn-gold" href="community.html">Back to leaderboard</a></div>`; return; }
+    rel = isMe ? null : await C.getRelation(me.uid, uid);
+    blocked = isMe ? false : await C.isBlocked(me.uid, uid);
+    const accepted = !!rel && rel.status === "accepted";
+    const canSee = isMe || !prof.isPrivate || accepted;
+    stats = canSee ? await C.getStats(uid) : null;
+    rank = null;
+    if (stats && stats.tests && (isMe || !prof.hideRank)) {
+      const rows = await C.getLeaderboard().catch(() => []);
+      rank = C.rankFor(rows, stats);
+      if (isMe) C.celebrateRank(me.uid, rank);
+    }
+    fers = fing = null;
+    if (canSee) [fers, fing] = await Promise.all([C.listFollowers(uid, isMe, prof, accepted).catch(() => null), C.listFollowing(uid, isMe, prof, accepted).catch(() => null)]);
+    if (fers) fers = fers.filter(f => f.status === "accepted");
+    if (fing) fing = fing.filter(f => f.status === "accepted");
+    msgOk = { ok: false };
+    if (!isMe && !blocked) msgOk = await C.canMessage(me.uid, uid, prof).catch(() => ({ ok: false, why: "Messaging is not available." }));
+    render(canSee);
+    if (isMe) renderRequests();
+  }
+
+  /* ---------- render ---------- */
+  function actionsHtml() {
+    if (isMe) return `<button class="btn btn-gold" data-act="edit">✏️ Edit profile</button><a class="btn btn-ghost" href="settings.html">⚙️ Settings</a>`;
+    if (blocked) return `<span class="cm-chip">🚫 You blocked this student</span><button class="btn btn-ghost" data-act="unblock">Unblock</button>`;
+    let f = "";
+    if (!rel) f = `<button class="btn btn-gold" data-act="follow">${prof.isPrivate ? "🔒 Request to follow" : "➕ Follow"}</button>`;
+    else if (rel.status === "pending") f = `<button class="btn btn-ghost" data-act="unfollow">⏳ Requested (cancel)</button>`;
+    else f = `<button class="btn btn-ghost" data-act="unfollow">✓ Following</button>`;
+    const m = msgOk.ok ? `<a class="btn btn-ghost" href="messages.html?to=${encodeURIComponent(uid)}">💬 Message</a>` : `<button class="btn btn-ghost" disabled title="${esc(msgOk.why || "")}">💬 Message</button>`;
+    return `${f}${m}<div class="cm-menu"><button class="btn btn-ghost" data-act="menu" aria-label="More">⋯</button><div class="cm-menu-pop" id="pop"><button data-act="report">🚩 Report</button><button data-act="block">🚫 Block</button></div></div>`;
+  }
+  function render(canSee) {
+    const head = `<div class="panel cm-head">
+      ${C.avatarHtml(prof, "xl")}
+      <div class="cm-info">
+        <h1>${esc(prof.name)} ${prof.isPrivate ? '<span title="Private profile">🔒</span>' : ""}</h1>
+        ${canSee && stats && stats.bio ? `<p class="cm-bio">${esc(stats.bio)}</p>` : ""}
+        <div class="cm-chips">
+          ${rank ? `<span class="cm-chip gold">🏆 Rank #${rank}</span>` : ""}
+          ${canSee && stats && stats.course ? `<span class="cm-chip">🎓 ${esc(stats.course)}</span>` : ""}
+          ${isMe && prof.hideRank ? `<span class="cm-chip">🙈 Rank hidden from others</span>` : ""}
+        </div>
+      </div>
+      <div class="cm-actions">${actionsHtml()}</div>
+    </div><div id="req"></div>`;
+
+    let body;
+    if (!canSee) {
+      body = `<div class="panel cm-lock"><div class="big">🔒</div><h2>This profile is private</h2>
+        <p class="cm-sub">Send a follow request. Once ${esc(prof.name)} accepts, you can see their rank, followers and achievements.</p></div>`;
+    } else {
+      const s = stats || { tests: 0, bestPercent: 0, streak: 0 };
+      const rankTxt = rank ? "#" + rank : (isMe || !prof.hideRank ? "–" : "🔒");
+      body = `<div class="cm-stats">
+        <button class="cm-stat" data-act="followers"><b>${fers ? fers.length : "–"}</b><span>Followers</span></button>
+        <button class="cm-stat" data-act="following"><b>${fing ? fing.length : "–"}</b><span>Following</span></button>
+        <div class="cm-stat"><b>${s.tests}</b><span>Tests taken</span></div>
+        <div class="cm-stat"><b>${s.bestPercent}%</b><span>Best score</span></div>
+        <div class="cm-stat"><b>${s.streak}🔥</b><span>Day streak</span></div>
+      </div>
+      <div class="panel"><h2>🏅 Achievements</h2>
+        <div class="cm-chips">${C.badgesFor(stats, rank).map(b => `<span class="cm-chip">${esc(b)}</span>`).join("") || '<span class="cm-sub" style="margin:0">No achievements yet. Take a test to earn your first badge!</span>'}</div>
+        <p class="cm-sub" style="margin:12px 0 0;font-size:.85rem">Rank: <b>${rankTxt}</b>${stats && stats.points ? " · Points: <b>" + stats.points + "</b> · Average: <b>" + stats.avgPercent + "%</b>" : ""}</p>
+      </div>`;
+    }
+    $("app").innerHTML = head + body;
+  }
+
+  async function renderRequests() {
+    try {
+      const reqs = await C.A.fsWhere("follows", [["target", "==", uid], ["status", "==", "pending"]]);
+      if (!reqs.length) { $("req").innerHTML = ""; return; }
+      const ps = await C.profilesOf(reqs.map(r => r.follower), 30);
+      $("req").innerHTML = `<div class="panel"><h2>🙋 Follow requests (${reqs.length})</h2><div class="cm-list">${ps.map(p => `
+        <div class="cm-row"><a href="profile.html?u=${encodeURIComponent(p.id)}">${C.avatarHtml(p)}</a><div class="grow"><b>${esc(p.name)}</b></div>
+        <button class="btn btn-gold" data-act="accept" data-id="${esc(p.id)}">Accept</button><button class="btn btn-ghost" data-act="decline" data-id="${esc(p.id)}">Decline</button></div>`).join("")}</div></div>`;
+    } catch (e) { /* requests are optional */ }
+  }
+
+  /* ---------- followers / following list ---------- */
+  async function showList(title, rows, key) {
+    const m = modal(`<h2>${title}<button class="cm-x" aria-label="Close">✕</button></h2><div class="cm-list" id="lst"><div class="skel"></div></div>`);
+    if (!rows) { m.el.querySelector("#lst").innerHTML = `<div class="empty">This list is not available.</div>`; return; }
+    const ps = await C.profilesOf(rows.map(r => r[key]));
+    const stat = await Promise.all(ps.map(p => C.getStats(p.id).catch(() => null)));
+    m.el.querySelector("#lst").innerHTML = ps.length ? ps.map((p, i) => `<a class="cm-row" href="profile.html?u=${encodeURIComponent(p.id)}">${C.avatarHtml(p, "sm")}<div class="grow"><b>${esc(p.name)}${p.isPrivate ? " 🔒" : ""}</b><small>${stat[i] && stat[i].shown && !p.hideRank && stat[i].tests ? "🏆 " + stat[i].points + " pts" : ""}</small></div></a>`).join("") : `<div class="empty">Nobody here yet.</div>`;
+  }
+
+  /* ---------- edit profile ---------- */
+  function openEdit(welcome) {
+    let av = prof.avatar || "";
+    const s = stats || {};
+    const m = modal(`<h2>${welcome ? "👋 Set up your profile" : "Edit profile"}<button class="cm-x" aria-label="Close">✕</button></h2>
+      ${welcome ? '<p class="cm-sub" style="font-size:.9rem">Choose how you appear to other students. You can change all of this later.</p>' : ""}
+      <div class="cm-field" style="display:flex;gap:14px;align-items:center"><div id="e-av"></div>
+        <div><button class="btn btn-ghost" id="e-up" type="button">📷 Upload photo</button> <button class="btn btn-ghost" id="e-rm" type="button">Remove</button><input type="file" id="e-file" accept="image/*" hidden></div></div>
+      <div class="cm-field"><label>Or pick an avatar</label><div class="cm-presets" id="e-pre"></div></div>
+      <div class="cm-field"><label for="e-name">Name</label><input id="e-name" maxlength="40" value="${esc(prof.name)}"></div>
+      <div class="cm-field"><label for="e-bio">Short bio (max 160)</label><textarea id="e-bio" maxlength="160" rows="2" placeholder="e.g. Class 12, preparing for NEET">${esc(s.bio || "")}</textarea></div>
+      <div class="cm-field"><label for="e-course">Class / course (used for course-wise rank)</label><select id="e-course"><option value="">Not set</option>${C.COURSES.map(c => `<option ${C.sameCourse(c, s.course) ? "selected" : ""}>${c}</option>`).join("")}</select></div>
+      <label class="toggle"><span><b>Private profile</b><small>Others see only your photo and name. People must send a request and you must accept before they can follow you or see your rank and followers.</small></span><input type="checkbox" id="e-priv" ${prof.isPrivate ? "checked" : ""}><i></i></label>
+      <label class="toggle"><span><b>Hide my rank</b><small>Your rank is shown only to you, and you are not listed on the leaderboard.</small></span><input type="checkbox" id="e-hide" ${prof.hideRank ? "checked" : ""}><i></i></label>
+      <div class="cm-field"><label for="e-dm">Who can message me?</label><select id="e-dm">
+        <option value="followers" ${(prof.dm || "followers") === "followers" ? "selected" : ""}>Only students I follow</option>
+        <option value="all" ${prof.dm === "all" ? "selected" : ""}>Everyone</option>
+        <option value="none" ${prof.dm === "none" ? "selected" : ""}>Nobody</option></select></div>
+      <div class="cm-msg" id="e-msg"></div>
+      <div class="cm-actions"><button class="btn btn-gold" id="e-save">Save</button><button class="btn btn-ghost cm-x" type="button">Cancel</button></div>`);
+    const q = id => m.el.querySelector("#" + id);
+    const paint = () => {
+      q("e-av").innerHTML = C.avatarHtml({ name: q("e-name").value || prof.name, avatar: av }, "xl");
+      q("e-pre").querySelectorAll("button").forEach(b => b.classList.toggle("on", av === "preset:" + b.dataset.p));
+    };
+    q("e-pre").innerHTML = C.PRESETS.map(p => `<button type="button" data-p="${p}">${p}</button>`).join("");
+    q("e-pre").addEventListener("click", e => { const b = e.target.closest("button"); if (b) { av = "preset:" + b.dataset.p; paint(); } });
+    q("e-up").addEventListener("click", () => q("e-file").click());
+    q("e-file").addEventListener("change", async e => {
+      const f = e.target.files[0]; e.target.value = "";
+      if (!f) return;
+      try { av = await C.photoFromFile(f); paint(); } catch (err) { say(q("e-msg"), err.message || "Could not read that image.", "err"); }
+    });
+    q("e-rm").addEventListener("click", () => { av = ""; paint(); });
+    q("e-name").addEventListener("input", paint);
+    paint();
+    q("e-save").addEventListener("click", async () => {
+      const name = q("e-name").value.trim();
+      if (name.length < 2) return say(q("e-msg"), "Please enter your name (at least 2 letters).", "err");
+      const b = q("e-save"); b.disabled = true; say(q("e-msg"), "Saving...");
+      try {
+        await C.saveMyProfile(me, { name, bio: q("e-bio").value.trim(), course: q("e-course").value, avatar: av, isPrivate: q("e-priv").checked, hideRank: q("e-hide").checked, dm: q("e-dm").value });
+        m.close(); await load(); C.toast("Profile saved ✓", 2500);
+      } catch (err) { say(q("e-msg"), C.errText(err), "err"); b.disabled = false; }
+    });
+  }
+
+  /* ---------- report ---------- */
+  function openReport() {
+    const m = modal(`<h2>Report ${esc(prof.name)}<button class="cm-x" aria-label="Close">✕</button></h2>
+      <div class="cm-field"><label for="r-why">What is the problem?</label><select id="r-why"><option>Abusive or rude behaviour</option><option>Inappropriate photo or bio</option><option>Spam</option><option>Pretending to be someone else</option><option>Other</option></select></div>
+      <div class="cm-field"><label for="r-txt">Details (optional)</label><textarea id="r-txt" maxlength="500" rows="3"></textarea></div>
+      <div class="cm-msg" id="r-msg"></div>
+      <div class="cm-actions"><button class="btn btn-gold" id="r-go">Send report</button><button class="btn btn-ghost cm-x" type="button">Cancel</button></div>`);
+    m.el.querySelector("#r-go").addEventListener("click", async () => {
+      const el = m.el.querySelector("#r-msg");
+      try {
+        await C.reportUser(me.uid, myProf.name, uid, prof.name, m.el.querySelector("#r-why").value, m.el.querySelector("#r-txt").value);
+        say(el, "Thank you. Our team will review this report.", "ok");
+        setTimeout(m.close, 1400);
+      } catch (e) { say(el, C.errText(e), "err"); }
+    });
+  }
+
+  /* ---------- clicks ---------- */
+  document.addEventListener("click", async e => {
+    const pop = $("pop"); if (pop && !e.target.closest(".cm-menu")) pop.classList.remove("open");
+    const b = e.target.closest("[data-act]"); if (!b) return;
+    const act = b.dataset.act;
+    try {
+      if (act === "menu") pop.classList.toggle("open");
+      else if (act === "edit") openEdit(false);
+      else if (act === "follow") { b.disabled = true; const st = await C.follow(me.uid, myProf, uid, prof); C.toast(st === "pending" ? "Request sent ✓" : "You are now following " + prof.name, 2500); await load(); }
+      else if (act === "unfollow") { b.disabled = true; await C.unfollow(me.uid, uid); await load(); }
+      else if (act === "followers") showList("Followers", fers, "follower");
+      else if (act === "following") showList("Following", fing, "target");
+      else if (act === "accept") { await C.acceptRequest(me.uid, b.dataset.id); await load(); }
+      else if (act === "decline") { await C.declineRequest(me.uid, b.dataset.id); renderRequests(); }
+      else if (act === "report") { pop.classList.remove("open"); openReport(); }
+      else if (act === "block") { pop.classList.remove("open"); if (confirm("Block " + prof.name + "? They will not be able to follow or message you.")) { await C.blockUser(me.uid, uid); await load(); } }
+      else if (act === "unblock") { await C.unblockUser(me.uid, uid); await load(); }
+    } catch (err) { C.toast(C.errText(err), 6000); b.disabled = false; }
+  });
+
+  protectPage(async (user, demo) => {
+    me = user;
+    if (demo || C.A.isDemo()) { $("app").innerHTML = `<div class="panel cm-lock"><div class="big">🔌</div><h2>Real account needed</h2><p class="cm-sub">The community works only with a real Firebase account (not demo mode).</p></div>`; return; }
+    try {
+      const r = await C.ensureMyProfile(user);
+      myProf = r.profile;
+      uid = params.get("u") || user.uid;
+      isMe = uid === user.uid;
+      await load();
+      if (isMe && (r.created || params.get("welcome"))) { openEdit(true); history.replaceState(null, "", "profile.html"); }
+    } catch (e) {
+      $("app").innerHTML = `<div class="panel cm-lock"><div class="big">⚠️</div><h2>Could not load</h2><p class="cm-sub">${esc(C.errText(e))}</p></div>`;
+    }
+  });
+</script>
+<script type="module" src="layout.js?v=9"></script>
+</body>
+</html>

@@ -1,0 +1,135 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Community | Gyaan Hub</title>
+<link rel="stylesheet" href="style.css?v=9">
+<script src="site-config.js?v=9"></script>
+<script src="theme.js?v=9"></script>
+</head>
+<body>
+<header class="nav">
+  <div class="container">
+    <a href="index.html" class="logo"><i>G</i> Gyaan Hub</a>
+    <div class="nav-cta">
+      <a href="messages.html" class="btn btn-ghost" id="msg-link">💬 Messages</a>
+      <a href="profile.html" class="btn btn-gold">My profile</a>
+    </div>
+  </div>
+</header>
+
+<main class="cm-wrap">
+  <div class="container">
+    <h1>👥 Student Community</h1>
+    <p class="cm-sub">See how you are doing, follow toppers and friends, and learn together.</p>
+    <div id="notes"></div>
+
+    <div class="cm-tabs">
+      <button class="chip on" data-tab="board">🏆 Leaderboard</button>
+      <button class="chip" data-tab="find">🔎 Find students</button>
+    </div>
+
+    <section id="tab-board">
+      <div id="mine" class="cm-list" style="margin-bottom:14px"></div>
+      <div class="cm-tabs" id="filters" style="margin-top:0"></div>
+      <div id="board" class="cm-list"><div class="skel"></div><div class="skel"></div></div>
+      <p class="cm-sub" style="margin-top:14px;font-size:.85rem">Rank is based on your test scores (sum of your best % in every test). Students with a private profile or a hidden rank are not shown here.</p>
+    </section>
+
+    <section id="tab-find" style="display:none">
+      <input class="cm-search" id="q" type="search" placeholder="Type at least 2 letters of a name..." maxlength="40" autocomplete="off">
+      <div id="found" class="cm-list" style="margin-top:14px"></div>
+    </section>
+  </div>
+</main>
+
+<script type="module">
+  import { protectPage } from "./auth.js?v=9";
+  import * as C from "./community.js?v=9";
+  import { applyI18n } from "./i18n.js?v=9";
+  const $ = id => document.getElementById(id);
+  const { esc } = C;
+  let me, myProf, myStats, rows = [], course = "";   // course: "" = everyone
+
+  function rowHtml(r, i, mine) {
+    return `<a class="cm-row ${mine ? "me" : ""}" href="profile.html?u=${encodeURIComponent(r.uid)}">
+      <div class="cm-rank">${i < 3 ? ["🥇", "🥈", "🥉"][i] : "#" + (i + 1)}</div>
+      ${C.avatarHtml(r)}
+      <div class="grow"><b>${esc(r.name)}${mine ? " (you)" : ""}</b><small>${esc(r.course || "")}${r.streak >= 2 ? " · 🔥 " + r.streak + " days" : ""}</small></div>
+      <div class="cm-pts">${r.points}<small>${r.tests} test${r.tests === 1 ? "" : "s"} · ${r.avgPercent}% avg</small></div>
+    </a>`;
+  }
+
+  function renderFilters() {
+    const f = $("filters");
+    const mineCourse = myStats && myStats.course;
+    const opts = [["", "🌍 Everyone"]];
+    if (mineCourse) opts.push([mineCourse, "🎓 My course: " + mineCourse]);
+    C.COURSES.filter(c => c !== mineCourse).forEach(c => opts.push([c, c]));
+    f.innerHTML = opts.map(([v, l]) => `<button class="chip ${v === course ? "on" : ""}" data-c="${esc(v)}">${esc(l)}</button>`).join("");
+    f.querySelectorAll("[data-c]").forEach(b => b.addEventListener("click", () => { course = b.dataset.c; renderFilters(); renderBoard(); }));
+  }
+
+  function renderBoard() {
+    const list = course ? rows.filter(r => C.sameCourse(r.course, course)) : rows;
+    const top = list.slice(0, 50);
+    $("board").innerHTML = top.length
+      ? top.map((r, i) => rowHtml(r, i, r.uid === me.uid)).join("")
+      : `<div class="empty">No one on this leaderboard yet. Take a test from the <a href="tests.html" style="color:var(--gold2)">Tests</a> page to get the first rank!</div>`;
+  }
+
+  function renderMine() {
+    if (!myStats) return;
+    if (!myStats.tests) { $("mine").innerHTML = `<div class="cm-note">Take your first test to get a rank. <a href="tests.html">Go to Tests →</a></div>`; return; }
+    const all = C.rankFor(rows, myStats), inCourse = myStats.course ? C.rankFor(rows, myStats, myStats.course) : null;
+    const hidden = !myStats.visible;
+    $("mine").innerHTML = `<div class="cm-row me">${C.avatarHtml(myProf)}<div class="grow"><b>Your rank: #${all}${inCourse ? " · #" + inCourse + " in " + esc(myStats.course) : ""}</b>
+      <small>${hidden ? "🔒 Only you can see this. Others cannot see you on the leaderboard." : "Visible to everyone on the leaderboard."}</small></div>
+      <a class="btn btn-ghost" href="profile.html">Profile</a></div>`;
+    C.celebrateRank(me.uid, all);
+  }
+
+  let timer;
+  $("q").addEventListener("input", () => {
+    clearTimeout(timer);
+    timer = setTimeout(async () => {
+      const q = $("q").value;
+      if (q.trim().length < 2) { $("found").innerHTML = ""; return; }
+      try {
+        const res = (await C.searchStudents(q)).filter(p => p.id !== me.uid).slice(0, 30);
+        $("found").innerHTML = res.length ? res.map(p => `<a class="cm-row" href="profile.html?u=${encodeURIComponent(p.id)}">${C.avatarHtml(p)}<div class="grow"><b>${esc(p.name)}${p.isPrivate ? " 🔒" : ""}</b></div><span class="btn btn-ghost">View</span></a>`).join("") : `<div class="empty">No student found.</div>`;
+      } catch (e) { $("found").innerHTML = `<div class="empty">${esc(C.errText(e))}</div>`; }
+    }, 350);
+  });
+
+  document.querySelectorAll("[data-tab]").forEach(b => b.addEventListener("click", () => {
+    document.querySelectorAll("[data-tab]").forEach(x => x.classList.toggle("on", x === b));
+    $("tab-board").style.display = b.dataset.tab === "board" ? "block" : "none";
+    $("tab-find").style.display = b.dataset.tab === "find" ? "block" : "none";
+  }));
+
+  protectPage(async (user, demo) => {
+    me = user;
+    if (demo || C.A.isDemo()) { $("board").innerHTML = `<div class="empty">The community needs a real account (not demo mode).</div>`; return; }
+    try {
+      const r = await C.ensureMyProfile(user);
+      myProf = r.profile;
+      if (r.created) { location.replace("profile.html?welcome=1"); return; }    // first visit: choose privacy settings
+      myStats = await C.syncMyStats(user, myProf);
+      rows = await C.getLeaderboard();
+      renderMine(); renderFilters(); renderBoard();
+      const notes = [];
+      const [unread, reqs] = await Promise.all([C.unreadCount(user.uid), C.A.fsWhere("follows", [["target", "==", user.uid], ["status", "==", "pending"]]).catch(() => [])]);
+      if (unread) notes.push(`💬 You have ${unread} unread conversation${unread > 1 ? "s" : ""}. <a href="messages.html">Open messages →</a>`);
+      if (reqs.length) notes.push(`🙋 ${reqs.length} follow request${reqs.length > 1 ? "s" : ""} waiting. <a href="profile.html">Review →</a>`);
+      $("notes").innerHTML = notes.map(n => `<div class="cm-note">${n}</div>`).join("");
+    } catch (e) {
+      $("board").innerHTML = `<div class="empty">${esc(C.errText(e))}</div>`;
+    }
+    applyI18n();
+  });
+</script>
+<script type="module" src="layout.js?v=9"></script>
+</body>
+</html>

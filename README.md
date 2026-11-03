@@ -18,6 +18,7 @@ A static study-materials portal with Firebase Authentication. (The site name can
 - Settings page: profile photo, dark/light/system theme, English/Hindi, password and email change, active devices with remote logout (this device / others / all), notifications, player settings, data saver, clear local data, export my data (JSON) and delete account
 - Test questions and options can include images (upload from the admin panel or paste a link). Click an image in a test to enlarge it
 - Admin: Site tab (website name, logo letter, contact e-mail), Logins tab (recent devices of all students)
+- **Student Community** (`community.html`, `profile.html`, `messages.html`): profile with avatar/bio/course, follow & followers, course-wise leaderboard, private profiles with follow requests, hide-my-rank, direct messages with block and report (reports are reviewed in `moderation.html`, admins only)
 - Responsive dark design with no build step
 
 ## Project structure
@@ -38,6 +39,10 @@ A static study-materials portal with Firebase Authentication. (The site name can
 | `theme.js` / `prefs.js` / `i18n.js` / `media.js` | Theme + site name, user preferences, English/Hindi texts, image upload/zoom helpers |
 | `files/` | Put your own PDFs/videos here and link them as `files/name.pdf` (sharpest PDFs) |
 | `privacy.html` / `terms.html` | Policy pages (template text, replace the contact email) |
+| `community.html` / `profile.html` / `messages.html` | Student Community: leaderboard + find students, profiles, chat |
+| `community.js` | All community logic (uses the same Firebase project as `auth.js`) |
+| `moderation.html` | Admin-only list of student reports |
+| `firestore.rules` | Same rules as below, as a ready file to paste |
 | `style.css` | Shared styles |
 
 ## Run locally
@@ -79,6 +84,21 @@ service cloud.firestore {
     function isOwner(uid) {
       return signedIn() && request.auth.uid == uid;
     }
+    // ---- community helpers ----
+    function docs() { return /databases/$(database)/documents; }
+    function profilePath(u) { return /databases/$(database)/documents/profiles/$(u); }
+    function isPrivateProfile(u) { return exists(profilePath(u)) && get(profilePath(u)).data.get("isPrivate", false) == true; }
+    function followPath(a, b) { return /databases/$(database)/documents/follows/$(a + "_" + b); }
+    function isAccFollower(u) {              // the signed-in user follows u and u has accepted
+      return exists(followPath(request.auth.uid, u)) && get(followPath(request.auth.uid, u)).data.status == "accepted";
+    }
+    function doesFollow(a, b) {              // a follows b (accepted)
+      return exists(followPath(a, b)) && get(followPath(a, b)).data.status == "accepted";
+    }
+    function blockedEither(p) {
+      return exists(/databases/$(database)/documents/blocks/$(p[0] + "_" + p[1]))
+          || exists(/databases/$(database)/documents/blocks/$(p[1] + "_" + p[0]));
+    }
     match /materials/{id} {
       allow read: if signedIn();
       allow write: if isAdmin();
@@ -118,6 +138,86 @@ service cloud.firestore {
         allow read, write: if isOwner(uid);
       }
     }
+    // ================= Student Community =================
+    match /profiles/{uid} {                 // public card: name, avatar, privacy flags
+      allow read: if signedIn();
+      allow create, update: if (isOwner(uid)
+          && request.resource.data.keys().hasOnly(["name", "nameLc", "avatar", "isPrivate", "hideRank", "dm", "updatedAt"])
+          && request.resource.data.name is string && request.resource.data.name.size() > 0 && request.resource.data.name.size() <= 40
+          && request.resource.data.avatar.size() < 40000
+          && request.resource.data.dm in ["all", "followers", "none"])
+        || isAdmin();
+      allow delete: if isOwner(uid) || isAdmin();
+    }
+    match /profileStats/{uid} {             // bio, course, rank numbers: hidden from strangers when the profile is private
+      allow read: if signedIn() && (resource == null || isOwner(uid) || resource.data.shown == true || isAccFollower(uid));
+      allow create, update: if (isOwner(uid) && request.resource.data.uid == uid
+          && (!("bio" in request.resource.data) || request.resource.data.bio.size() <= 160))
+        || isAdmin();
+      allow delete: if isOwner(uid) || isAdmin();
+    }
+    match /follows/{id} {                   // id = followerUid_targetUid
+      allow read: if signedIn() && (resource == null
+          || request.auth.uid == resource.data.follower || request.auth.uid == resource.data.target
+          || (resource.data.status == "accepted" && (
+                (resource.data.targetPrivate == false && resource.data.followerPrivate == false)
+                || isAccFollower(resource.data.target)
+                || (resource.data.targetPrivate == false && isAccFollower(resource.data.follower)))));
+      allow create: if signedIn()
+          && request.resource.data.follower == request.auth.uid
+          && request.resource.data.target is string && request.resource.data.target != request.auth.uid
+          && id == request.auth.uid + "_" + request.resource.data.target
+          && !exists(/databases/$(database)/documents/blocks/$(request.resource.data.target + "_" + request.auth.uid))
+          && request.resource.data.targetPrivate == isPrivateProfile(request.resource.data.target)
+          && request.resource.data.followerPrivate == isPrivateProfile(request.auth.uid)
+          && ((isPrivateProfile(request.resource.data.target) && request.resource.data.status == "pending")
+              || (!isPrivateProfile(request.resource.data.target) && request.resource.data.status == "accepted"));
+      allow update: if signedIn() && (
+          (request.auth.uid == resource.data.target
+            && request.resource.data.diff(resource.data).affectedKeys().hasOnly(["status", "targetPrivate", "updatedAt"])
+            && request.resource.data.status == "accepted")
+          || (request.auth.uid == resource.data.follower
+            && request.resource.data.diff(resource.data).affectedKeys().hasOnly(["followerPrivate", "updatedAt"])));
+      allow delete: if signedIn() && (request.auth.uid == resource.data.follower || request.auth.uid == resource.data.target);
+    }
+    match /blocks/{id} {                    // id = blockerUid_blockedUid (the blocked person cannot read it)
+      allow read, delete: if signedIn() && (resource == null || resource.data.blocker == request.auth.uid);
+      allow create: if signedIn() && request.resource.data.blocker == request.auth.uid
+          && id == request.auth.uid + "_" + request.resource.data.blocked;
+    }
+    match /chats/{cid} {                    // cid = smallerUid_largerUid
+      allow read: if signedIn() && (resource == null || request.auth.uid in resource.data.participants);
+      allow create: if signedIn()
+          && request.resource.data.participants.size() == 2
+          && request.auth.uid in request.resource.data.participants
+          && request.resource.data.participants[0] < request.resource.data.participants[1]
+          && cid == request.resource.data.participants[0] + "_" + request.resource.data.participants[1]
+          && !blockedEither(request.resource.data.participants);
+      allow update: if signedIn() && request.auth.uid in resource.data.participants
+          && request.resource.data.participants == resource.data.participants
+          && !blockedEither(resource.data.participants);
+      allow delete: if false;
+      match /messages/{mid} {
+        function chat() { return get(/databases/$(database)/documents/chats/$(cid)).data; }
+        function dmAllowed(to, from) {
+          return !exists(profilePath(to))
+              || get(profilePath(to)).data.get("dm", "followers") == "all"
+              || (get(profilePath(to)).data.get("dm", "followers") == "followers" && doesFollow(to, from));
+        }
+        allow read: if signedIn() && request.auth.uid in chat().participants;
+        allow create: if signedIn()
+            && request.resource.data.from == request.auth.uid
+            && request.resource.data.to in chat().participants && request.resource.data.to != request.auth.uid
+            && request.resource.data.text is string && request.resource.data.text.size() > 0 && request.resource.data.text.size() <= 1000
+            && !blockedEither(chat().participants)
+            && dmAllowed(request.resource.data.to, request.auth.uid);
+        allow delete: if signedIn() && resource.data.from == request.auth.uid;
+      }
+    }
+    match /communityReports/{id} {          // reports: anyone can send, only admins can read
+      allow create: if signedIn() && request.resource.data.reporter == request.auth.uid;
+      allow read, update, delete: if isAdmin();
+    }
     match /{path=**}/devices/{id} {         // admin "Logins" tab
       allow read: if isAdmin();
     }
@@ -132,3 +232,12 @@ Create the document `admins/<your UID>` (field `role` = `admin`) in the Firebase
 - **Question images** are resized on the admin's device and stored compressed in Firestore (collection `images`), so Firebase Storage (paid plan) is not needed.
 - **Language:** English and Hindi cover menus, dashboard, settings and the player. Legal pages and the admin panel stay in English.
 - **EmailJS:** service/template IDs and keys in `verify.html` and `tests.html` are unchanged. Both e-mails now also receive a `site_name` parameter (use `{{site_name}}` in a template if you want it).
+
+## Student Community notes
+- **No new keys or services.** It uses the same Firebase project (`auth.js`) and Firestore. EmailJS settings are untouched.
+- **New collections:** `profiles`, `profileStats`, `follows`, `blocks`, `chats` (+ `messages`), `communityReports`. Publish the rules above (also in `firestore.rules`) first, otherwise the community pages show "Not allowed".
+- **Rank** = sum of each student's best % over all tests. It is recalculated when the student opens a community page and right after every test.
+- **Privacy:** a private profile exposes only name and avatar. Bio, course, rank, followers and achievements are readable only by the owner and accepted followers (enforced by the rules, not only by the screen). Students with a private profile or hidden rank are left out of the leaderboard.
+- **Messages:** default is "only students I follow" can message me. Blocked users cannot message or follow. Reports include the last 8 messages of the chat.
+- **Known limit:** the existing `scores` collection (used for the per-test rank in `tests.html`) is still readable by all signed-in students, as before. For hard privacy of scores, move ranking to a Cloud Function.
+- **Scale:** the leaderboard loads all public students and sorts in the browser. This is fine for a few hundred to a few thousand students. After that, move it to a Cloud Function.

@@ -1,0 +1,163 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Messages | Gyaan Hub</title>
+<link rel="stylesheet" href="style.css?v=9">
+<script src="site-config.js?v=9"></script>
+<script src="theme.js?v=9"></script>
+</head>
+<body>
+<header class="nav">
+  <div class="container">
+    <a href="index.html" class="logo"><i>G</i> Gyaan Hub</a>
+    <div class="nav-cta">
+      <a href="community.html" class="btn btn-ghost">🏆 Leaderboard</a>
+      <a href="profile.html" class="btn btn-gold">My profile</a>
+    </div>
+  </div>
+</header>
+
+<main class="cm-wrap" style="padding-bottom:30px">
+  <div class="container">
+    <h1>💬 Messages</h1>
+    <div class="cm-chat" id="chat">
+      <aside class="cm-side"><div class="cm-list" id="list"><div class="skel"></div></div></aside>
+      <section class="cm-conv" id="conv"><div class="cm-empty">Select a conversation, or open a student's profile and tap <b>Message</b>.</div></section>
+    </div>
+  </div>
+</main>
+
+<script type="module">
+  import { protectPage } from "./auth.js?v=9";
+  import * as C from "./community.js?v=9";
+  const $ = id => document.getElementById(id);
+  const { esc } = C;
+  let me, myProf, chats = [], cur = null /* {uid, prof, cid} */, unsub = null, msgs = [], lastSend = 0;
+
+  const fmt = ms => { const d = new Date(ms), t = d.toLocaleTimeString([], { hour: "2-digit", minute: "2-digit" }); return d.toDateString() === new Date().toDateString() ? t : d.toLocaleDateString([], { day: "numeric", month: "short" }) + " " + t; };
+
+  async function loadList() {
+    try { chats = await C.listChats(me.uid); } catch (e) { $("list").innerHTML = `<div class="empty">${esc(C.errText(e))}</div>`; return; }
+    const ps = await Promise.all(chats.map(c => C.getProfile(C.otherOf(c, me.uid)).catch(() => null)));
+    $("list").innerHTML = chats.length ? chats.map((c, i) => {
+      const o = C.otherOf(c, me.uid), p = ps[i] || { name: "Student" };
+      return `<div class="cm-row ${cur && cur.uid === o ? "on" : ""}" data-open="${esc(o)}">${C.avatarHtml(p, "sm")}<div class="grow"><b>${esc(p.name)}</b><small>${c.lastFrom === me.uid ? "You: " : ""}${esc(c.lastText || "")}</small></div>${C.isUnread(c, me.uid) && !(cur && cur.uid === o) ? '<span class="cm-dot"></span>' : ""}</div>`;
+    }).join("") : `<div class="empty">No conversations yet.</div>`;
+  }
+
+  async function open(otherUid) {
+    if (unsub) { unsub(); unsub = null; }
+    const prof = await C.getProfile(otherUid, true).catch(() => null);
+    if (!prof) { C.toast("This student has no community profile."); return; }
+    cur = { uid: otherUid, prof, cid: C.chatId(me.uid, otherUid) };
+    msgs = [];
+    const blocked = await C.isBlocked(me.uid, otherUid);
+    const can = blocked ? { ok: false, why: "You blocked this student." } : await C.canMessage(me.uid, otherUid, prof).catch(() => ({ ok: true }));
+    const exists = await C.chatExists(cur.cid);
+    $("chat").classList.add("in-conv");
+    $("conv").innerHTML = `
+      <div class="cm-conv-head"><button class="btn btn-ghost cm-back" id="back" style="padding:6px 12px">←</button>
+        <a href="profile.html?u=${encodeURIComponent(otherUid)}">${C.avatarHtml(prof, "sm")}</a>
+        <div class="grow"><a href="profile.html?u=${encodeURIComponent(otherUid)}"><b>${esc(prof.name)}</b></a></div>
+        <div class="cm-menu"><button class="btn btn-ghost" id="menu" style="padding:6px 14px">⋯</button>
+          <div class="cm-menu-pop" id="pop"><button id="m-report">🚩 Report</button><button id="m-block">${blocked ? "✅ Unblock" : "🚫 Block"}</button></div></div></div>
+      <div class="cm-msgs" id="msgs"><div class="cm-empty">${exists ? "Loading..." : "Say hello 👋 Ask a study doubt or share notes."}</div></div>
+      ${can.ok ? `<div class="cm-compose"><textarea id="txt" maxlength="1000" placeholder="Type a message..." rows="1"></textarea><button class="btn btn-gold" id="send">Send</button></div>`
+               : `<div class="cm-compose"><div class="cm-msg" style="margin:0;flex:1">${esc(can.why || "You cannot message this student.")}</div></div>`}`;
+    $("back").addEventListener("click", () => { $("chat").classList.remove("in-conv"); if (unsub) { unsub(); unsub = null; } cur = null; loadList(); });
+    $("menu").addEventListener("click", e => { e.stopPropagation(); $("pop").classList.toggle("open"); });
+    $("m-block").addEventListener("click", async () => {
+      $("pop").classList.remove("open");
+      try {
+        if (blocked) { await C.unblockUser(me.uid, otherUid); C.toast("Unblocked", 2000); }
+        else if (confirm("Block " + prof.name + "? They will not be able to message or follow you.")) { await C.blockUser(me.uid, otherUid); C.toast("Blocked", 2000); }
+        else return;
+        open(otherUid);
+      } catch (e) { C.toast(C.errText(e), 6000); }
+    });
+    $("m-report").addEventListener("click", () => { $("pop").classList.remove("open"); report(); });
+    if (can.ok) {
+      $("send").addEventListener("click", send);
+      $("txt").addEventListener("keydown", e => { if (e.key === "Enter" && !e.shiftKey) { e.preventDefault(); send(); } });
+    }
+    if (exists) watch();
+    loadList();
+  }
+
+  function watch() {
+    if (unsub) unsub();
+    const cid = cur.cid;
+    unsub = C.A.fsWatchCol(["chats", cid, "messages"], rows => {
+      if (!cur || cur.cid !== cid) return;
+      msgs = rows.sort((a, b) => (a.ts || 0) - (b.ts || 0));
+      const box = $("msgs"); if (!box) return;
+      const atEnd = box.scrollHeight - box.scrollTop - box.clientHeight < 80;
+      box.innerHTML = msgs.length ? msgs.map(m => `<div class="cm-bubble ${m.from === me.uid ? "mine" : ""}">${esc(m.text)}<small>${fmt(m.ts || Date.now())}</small></div>`).join("") : `<div class="cm-empty">Say hello 👋</div>`;
+      if (atEnd || msgs.length < 3) box.scrollTop = box.scrollHeight;
+      C.markSeen(cid, me.uid);
+    }, e => { const b = $("msgs"); if (b) b.innerHTML = `<div class="cm-empty">${esc(C.errText(e))}</div>`; });
+  }
+
+  async function send() {
+    const ta = $("txt"), text = ta.value.trim();
+    if (!text || Date.now() - lastSend < 800) return;
+    lastSend = Date.now();
+    const btn = $("send"); btn.disabled = true;
+    const existed = await C.chatExists(cur.cid);
+    try {
+      await C.sendMessage(me.uid, cur.uid, text);
+      ta.value = "";
+      if (!existed) watch();
+      loadList();
+    } catch (e) {
+      C.toast(e && e.code === "permission-denied" ? "This message could not be sent. The student may not accept messages from you." : C.errText(e), 6000);
+    }
+    btn.disabled = false; ta.focus();
+  }
+
+  function report() {
+    const m = document.createElement("div");
+    m.className = "cm-modal";
+    m.innerHTML = `<div class="cm-card"><h2>Report ${esc(cur.prof.name)}<button class="cm-x" aria-label="Close">✕</button></h2>
+      <p class="cm-sub" style="font-size:.88rem">The last few messages of this chat are sent with your report so our team can review it.</p>
+      <div class="cm-field"><label>What is the problem?</label><select id="r-why"><option>Abusive or rude behaviour</option><option>Inappropriate content</option><option>Spam</option><option>Asking for personal information</option><option>Other</option></select></div>
+      <div class="cm-field"><label>Details (optional)</label><textarea id="r-txt" maxlength="500" rows="3"></textarea></div>
+      <div class="cm-msg" id="r-msg"></div>
+      <div class="cm-actions"><button class="btn btn-gold" id="r-go">Send report</button><button class="btn btn-ghost cm-x" type="button">Cancel</button></div></div>`;
+    document.body.appendChild(m);
+    const close = () => m.remove();
+    m.addEventListener("click", e => { if (e.target === m) close(); });
+    m.querySelectorAll(".cm-x").forEach(b => b.addEventListener("click", close));
+    m.querySelector("#r-go").addEventListener("click", async () => {
+      const el = m.querySelector("#r-msg");
+      const evidence = msgs.slice(-8).map(x => ({ from: x.from === me.uid ? "reporter" : "reported", text: String(x.text).slice(0, 300) }));
+      try {
+        await C.reportUser(me.uid, myProf.name, cur.uid, cur.prof.name, m.querySelector("#r-why").value, m.querySelector("#r-txt").value, evidence);
+        el.className = "cm-msg ok"; el.textContent = "Thank you. Our team will review this report.";
+        setTimeout(close, 1400);
+      } catch (e) { el.className = "cm-msg err"; el.textContent = C.errText(e); }
+    });
+  }
+
+  document.addEventListener("click", e => {
+    const pop = $("pop"); if (pop && !e.target.closest(".cm-menu")) pop.classList.remove("open");
+    const r = e.target.closest("[data-open]"); if (r) open(r.dataset.open);
+  });
+
+  protectPage(async (user, demo) => {
+    me = user;
+    if (demo || C.A.isDemo()) { $("list").innerHTML = `<div class="empty">Messages need a real account (not demo mode).</div>`; return; }
+    try {
+      myProf = (await C.ensureMyProfile(user)).profile;
+      await loadList();
+      const to = new URLSearchParams(location.search).get("to");
+      if (to && to !== user.uid) open(to);
+      setInterval(() => { if (!document.hidden) loadList(); }, 20000);
+    } catch (e) { $("list").innerHTML = `<div class="empty">${esc(C.errText(e))}</div>`; }
+  });
+</script>
+<script type="module" src="layout.js?v=9"></script>
+</body>
+</html>

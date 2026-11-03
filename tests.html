@@ -64,6 +64,7 @@
   </div>
 </main>
 <script type="module">
+  import { syncMyStats } from "./community.js?v=9";
   import { protectPage, fsList, fsListFresh, cacheGet, fsSave, fsGet, fsSet, fsQuery, setDisplayName } from "./auth.js?v=9";
   import { imgHtml, hydrate, prefetch, initLightbox } from "./media.js?v=9";
   import { getPrefs } from "./prefs.js?v=9";
@@ -190,6 +191,9 @@
     } catch (e) {
       $("s-msg").className = "msg err"; $("s-msg").textContent = "Your result could not be saved, but your score is shown above.";
     }
+
+    // community: refresh my rank numbers (only if I already have a community profile)
+    try { syncMyStats(user).catch(() => {}); } catch (e) {}
 
     // 3) email the result to the student's registered address
     if (!EMAILJS.resultTemplateId.startsWith("PASTE_") && getPrefs().emailResults) {
