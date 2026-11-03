@@ -4,7 +4,9 @@
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1.0">
 <title>Settings | Gyaan Hub</title>
-<link rel="stylesheet" href="style.css?v=8">
+<link rel="stylesheet" href="style.css?v=9">
+<script src="site-config.js?v=9"></script>
+<script src="theme.js?v=9"></script>
 </head>
 <body>
 <header class="nav">
@@ -18,35 +20,351 @@
 </header>
 
 <main class="dash">
-  <div class="container" style="max-width:780px">
-    <h1>Settings ⚙️</h1>
-    <p class="sub">Manage your account and privacy preferences.</p>
+  <div class="container" style="max-width:820px">
+    <h1><span data-i18n="set.title">Settings</span> ⚙️</h1>
+    <p class="sub" data-i18n="set.sub">Manage your profile, security, devices and how the site works for you.</p>
+    <div id="demo" class="msg"></div>
+
+    <!-- Profile -->
     <div class="panel">
-      <h2>Account</h2>
-      <div class="set-row"><div><b>Email</b><small id="s-email">-</small></div></div>
-      <div class="set-row"><div><b>Display name</b><small id="s-name">-</small></div></div>
-      <div class="set-row"><div><b>Session</b><small>Sign out of this device</small></div><button class="btn btn-ghost" id="s-logout">Logout</button></div>
+      <h2 data-i18n="set.profile">Profile</h2>
+      <div class="profile-row">
+        <span class="avatar lg" id="av">?</span>
+        <div class="grow" style="flex:1 1 240px">
+          <b data-i18n="set.photo">Profile photo</b>
+          <p class="note" data-i18n="set.photoHint">JPG or PNG. It is resized on your device before saving.</p>
+          <div class="acts" style="margin-top:10px">
+            <button class="btn btn-ghost btn-sm" id="av-up" data-i18n="set.upload">Upload photo</button>
+            <button class="btn btn-ghost btn-sm" id="av-rm" data-i18n="set.remove">Remove</button>
+            <input type="file" id="av-file" accept="image/*" hidden>
+          </div>
+          <div class="inline-msg" id="av-msg"></div>
+        </div>
+      </div>
+      <div class="set-row"><div class="grow"><b data-i18n="set.email">Email</b><small id="s-email">-</small></div></div>
+      <div class="set-row">
+        <div class="grow"><b data-i18n="set.name">Display name</b><small id="s-name">-</small></div>
+        <div class="acts"><input class="set-input" id="name-in" maxlength="60" placeholder="Your full name" autocomplete="name"><button class="btn btn-ghost btn-sm" id="name-save" data-i18n="set.nameSave">Save name</button></div>
+      </div>
+      <div class="inline-msg" id="name-msg"></div>
+      <div class="set-row"><div class="grow"><b data-i18n="set.session">Session</b><small data-i18n="set.sessionHint">Sign out of this device</small></div><button class="btn btn-ghost" id="s-logout" data-i18n="nav.logout">Logout</button></div>
     </div>
+
+    <!-- Appearance -->
     <div class="panel">
-      <h2>Privacy &amp; cookies</h2>
-      <div class="set-row"><div><b>Cookie preferences</b><small>Review or change which optional cookies we may use.</small></div><button class="btn btn-ghost" id="s-cookies">Manage</button></div>
-      <div class="set-row"><div><b>Withdraw consent</b><small>Clears your saved choice. You will be asked again.</small></div><button class="btn btn-ghost" id="s-reset">Reset consent</button></div>
-      <div class="set-row"><div><b>Policies</b><small><a href="privacy.html" style="color:var(--gold2)">Privacy Policy</a> · <a href="terms.html" style="color:var(--gold2)">Terms of Use</a></small></div></div>
+      <h2 data-i18n="set.appearance">Appearance &amp; language</h2>
+      <div class="set-row">
+        <div class="grow"><b data-i18n="set.theme">Theme</b></div>
+        <div class="seg" id="theme-seg">
+          <button data-v="dark" data-i18n="set.dark">Dark</button>
+          <button data-v="light" data-i18n="set.light">Light</button>
+          <button data-v="system" data-i18n="set.system">System</button>
+        </div>
+      </div>
+      <div class="set-row">
+        <div class="grow"><b data-i18n="set.lang">Language</b><small data-i18n="set.langHint">Changes menus and main screens.</small></div>
+        <select data-pref="lang" aria-label="Language"><option value="en">English</option><option value="hi">हिन्दी</option></select>
+      </div>
+    </div>
+
+    <!-- Security -->
+    <div class="panel" id="sec-panel">
+      <h2 data-i18n="set.security">Password &amp; email</h2>
+      <p class="note" id="google-note" style="display:none;margin:0 0 6px" data-i18n="set.googleNote">You signed in with Google, so your password and email are managed in your Google account.</p>
+      <div id="sec-forms">
+        <div class="set-row" style="align-items:flex-start">
+          <div class="grow"><b data-i18n="set.changePw">Change password</b></div>
+          <div class="stack">
+            <input type="password" id="pw-cur" data-i18n-ph="set.curPw" placeholder="Current password" autocomplete="current-password">
+            <input type="password" id="pw-new" data-i18n-ph="set.newPw" placeholder="New password (min 6 characters)" autocomplete="new-password">
+            <input type="password" id="pw-new2" data-i18n-ph="set.confPw" placeholder="Confirm new password" autocomplete="new-password">
+            <div><button class="btn btn-gold btn-sm" id="pw-save" data-i18n="set.changePw">Change password</button></div>
+            <div class="inline-msg" id="pw-msg"></div>
+          </div>
+        </div>
+        <div class="set-row" style="align-items:flex-start">
+          <div class="grow"><b data-i18n="set.changeEmail">Change email</b><small data-i18n="set.emailNote">We send a verification link to the new address. The email changes after you click it.</small></div>
+          <div class="stack">
+            <input type="email" id="em-new" data-i18n-ph="set.newEmail" placeholder="New email address" autocomplete="email">
+            <input type="password" id="em-pw" data-i18n-ph="set.curPw" placeholder="Current password" autocomplete="current-password">
+            <div><button class="btn btn-gold btn-sm" id="em-save" data-i18n="set.changeEmail">Change email</button></div>
+            <div class="inline-msg" id="em-msg"></div>
+          </div>
+        </div>
+      </div>
+    </div>
+
+    <!-- Devices -->
+    <div class="panel">
+      <h2 data-i18n="set.devices">Active devices</h2>
+      <p class="note" style="margin:-6px 0 8px" data-i18n="set.devicesSub">Everywhere your account is signed in. If you do not recognise one, log it out and change your password.</p>
+      <div id="dev-list"><p class="note" data-i18n="set.loading">Loading...</p></div>
+      <div class="acts" style="margin-top:14px">
+        <button class="btn btn-ghost btn-sm" id="dev-refresh" data-i18n="set.refresh">Refresh</button>
+        <button class="btn btn-ghost btn-sm" id="dev-others" data-i18n="set.logoutOthers">Log out all other devices</button>
+        <button class="btn btn-ghost btn-sm" id="dev-all" data-i18n="set.logoutAll">Log out from all devices</button>
+      </div>
+      <div class="inline-msg" id="dev-msg"></div>
+    </div>
+
+    <!-- Notifications -->
+    <div class="panel">
+      <h2 data-i18n="set.notifications">Notifications</h2>
+      <div class="set-row"><div class="grow"><b data-i18n="set.nResults">Email my test results</b><small data-i18n="set.nResultsHint">Send a copy of your score and rank to your email after each test.</small></div><label class="sw"><input type="checkbox" data-pref="emailResults"><i></i></label></div>
+      <div class="set-row"><div class="grow"><b data-i18n="set.nNew">New material alerts</b><small data-i18n="set.nNewHint">Show a NEW badge and a banner when new notes, videos or papers are added.</small></div><label class="sw"><input type="checkbox" data-pref="newAlerts"><i></i></label></div>
+    </div>
+
+    <!-- Player -->
+    <div class="panel">
+      <h2 data-i18n="set.player">Player settings</h2>
+      <div class="set-row"><div class="grow"><b data-i18n="set.speed">Default speed</b></div>
+        <select data-pref="speed" data-num="1"><option value="0.5">0.5x</option><option value="0.75">0.75x</option><option value="1">1x</option><option value="1.25">1.25x</option><option value="1.5">1.5x</option><option value="1.75">1.75x</option><option value="2">2x</option></select></div>
+      <div class="set-row"><div class="grow"><b data-i18n="set.quality">Default video quality</b><small data-i18n="set.qualityHint">YouTube may ignore this on some videos or networks.</small></div>
+        <select data-pref="quality"><option value="auto">Auto</option><option value="1080p">1080p</option><option value="720p">720p</option><option value="480p">480p</option><option value="360p">360p</option><option value="240p">240p</option><option value="144p">144p</option></select></div>
+      <div class="set-row"><div class="grow"><b data-i18n="set.autoplay">Autoplay</b><small data-i18n="set.autoplayHint">Start videos automatically when you open them.</small></div><label class="sw"><input type="checkbox" data-pref="autoplay"><i></i></label></div>
+      <div class="set-row"><div class="grow"><b data-i18n="set.resume">Resume from last position</b><small data-i18n="set.resumeHint">Videos and PDFs reopen where you stopped.</small></div><label class="sw"><input type="checkbox" data-pref="resume"><i></i></label></div>
+      <div class="set-row"><div class="grow"><b data-i18n="set.download">Show download button</b><small data-i18n="set.downloadHint">In the notes / PDF viewer.</small></div><label class="sw"><input type="checkbox" data-pref="showDownload"><i></i></label></div>
+    </div>
+
+    <!-- Data usage -->
+    <div class="panel">
+      <h2 data-i18n="set.data">Download &amp; data usage</h2>
+      <div class="set-row"><div class="grow"><b data-i18n="set.saver">Data saver mode</b><small data-i18n="set.saverHint">Lower video quality (360p), PDFs render at normal resolution, no autoplay.</small><small id="saver-auto" style="display:none">Your browser is also asking sites to save data (Save-Data is on).</small></div><label class="sw"><input type="checkbox" data-pref="dataSaver"><i></i></label></div>
+      <div class="set-row"><div class="grow"><b data-i18n="set.clearCache">Clear saved data on this device</b><small data-i18n="set.clearCacheHint">Removes cached lists and resume positions stored in this browser.</small></div><button class="btn btn-ghost btn-sm" id="clear-cache" data-i18n="set.clear">Clear</button></div>
+      <div class="inline-msg" id="cache-msg"></div>
+    </div>
+
+    <!-- Privacy -->
+    <div class="panel">
+      <h2 data-i18n="set.privacy">Privacy &amp; cookies</h2>
+      <div class="set-row"><div class="grow"><b data-i18n="set.cookies">Cookie preferences</b><small data-i18n="set.cookiesHint">Review or change which optional cookies we may use.</small></div><button class="btn btn-ghost" id="s-cookies" data-i18n="set.manage">Manage</button></div>
+      <div class="set-row"><div class="grow"><b data-i18n="set.withdraw">Withdraw consent</b><small data-i18n="set.withdrawHint">Clears your saved choice. You will be asked again.</small></div><button class="btn btn-ghost" id="s-reset" data-i18n="set.reset">Reset consent</button></div>
+      <div class="set-row"><div class="grow"><b data-i18n="set.policies">Policies</b><small><a href="privacy.html" style="color:var(--gold2)" data-i18n="nav.privacy">Privacy Policy</a> · <a href="terms.html" style="color:var(--gold2)" data-i18n="nav.terms">Terms of Use</a></small></div></div>
+    </div>
+
+    <!-- Your data -->
+    <div class="panel">
+      <h2 data-i18n="set.yourData">Your data</h2>
+      <div class="set-row"><div class="grow"><b data-i18n="set.export">Export my data</b><small data-i18n="set.exportHint">Download your profile, settings, devices, learning progress and test results as a JSON file.</small></div><button class="btn btn-ghost" id="export" data-i18n="set.exportBtn">Download JSON</button></div>
+      <div class="inline-msg" id="export-msg"></div>
+    </div>
+
+    <div class="panel danger">
+      <h2 data-i18n="set.danger">Danger zone</h2>
+      <div class="set-row"><div class="grow"><b data-i18n="set.delete">Delete my account</b><small data-i18n="set.deleteHint">Permanently deletes your account, test results and saved data. This cannot be undone.</small></div><button class="btn btn-danger" id="del-open" data-i18n="set.deleteBtn">Delete account</button></div>
     </div>
   </div>
 </main>
+
 <script type="module">
-  import { protectPage, logout } from "./auth.js?v=8";
-  protectPage(user => {
-    document.getElementById("who").textContent = user.email;
-    document.getElementById("nav-login").style.display = "none";
-    document.getElementById("s-email").textContent = user.email;
-    document.getElementById("s-name").textContent = user.displayName || "Not set";
+  import { protectPage, logout, friendly, currentUser, isDemo, hasPassword, isGoogleUser, setDisplayName, saveUserDoc,
+           listDevices, sessionReady, removeDevice, logoutOthers, logoutEverywhere, deviceId, changePassword, changeEmail, deleteAccount, exportData, toMs } from "./auth.js?v=9";
+  import { getPrefs, savePrefs } from "./prefs.js?v=9";
+  import { t, applyI18n, lang } from "./i18n.js?v=9";
+  import { squareAvatar } from "./media.js?v=9";
+
+  const $ = id => document.getElementById(id);
+  const esc = s => String(s ?? "").replace(/[&<>"']/g, c => ({ "&": "&amp;", "<": "&lt;", ">": "&gt;", '"': "&quot;", "'": "&#39;" }[c]));
+  const flash = (id, text, type = "ok") => { const el = $(id); el.className = "inline-msg " + type; el.textContent = text; if (type === "ok") setTimeout(() => { el.className = "inline-msg"; }, 4500); };
+  const busy = (btn, on) => { btn.disabled = on; };
+  let user = null;
+  const avKey = () => "gyaan_avatar_" + user.uid;
+
+  /* ---------- preferences (saved on this device at once, synced to the account) ---------- */
+  function syncControls() {
+    const p = getPrefs();
+    document.querySelectorAll("[data-pref]").forEach(el => {
+      const v = p[el.dataset.pref];
+      if (el.type === "checkbox") el.checked = !!v; else el.value = String(v);
+    });
+    document.querySelectorAll("#theme-seg button").forEach(b => b.classList.toggle("on", b.dataset.v === p.theme));
+  }
+  document.querySelectorAll("[data-pref]").forEach(el => el.addEventListener("change", () => {
+    const k = el.dataset.pref;
+    const v = el.type === "checkbox" ? el.checked : (el.dataset.num ? parseFloat(el.value) : el.value);
+    savePrefs({ [k]: v });
+    if (k === "lang") { applyI18n(); renderDevices(devCache); }
+  }));
+  $("theme-seg").addEventListener("click", e => { const b = e.target.closest("button[data-v]"); if (b) { savePrefs({ theme: b.dataset.v }); syncControls(); } });
+  if (navigator.connection && navigator.connection.saveData) $("saver-auto").style.display = "block";
+  syncControls();
+  window.addEventListener("prefs-changed", syncControls);   // account copy arrived from layout.js
+
+  /* ---------- avatar ---------- */
+  function paintAvatar() {
+    let a = ""; try { a = localStorage.getItem(avKey()) || ""; } catch (e) {}
+    const el = $("av");
+    if (a) el.outerHTML = `<img class="avatar lg" id="av" src="${a}" alt="">`;
+    else el.outerHTML = `<span class="avatar lg" id="av">${esc(((user.displayName || user.email || "?").trim()[0] || "?").toUpperCase())}</span>`;
+    window.dispatchEvent(new Event("avatar-changed"));
+  }
+  $("av-up").addEventListener("click", () => $("av-file").click());
+  $("av-file").addEventListener("change", async e => {
+    const f = e.target.files[0]; e.target.value = "";
+    if (!f) return;
+    try {
+      if (isDemo()) throw new Error("Not available in demo mode.");
+      const data = await squareAvatar(f);
+      await saveUserDoc({ avatar: data });
+      try { localStorage.setItem(avKey(), data); } catch (err) {}
+      paintAvatar(); flash("av-msg", t("set.saved"));
+    } catch (err) { flash("av-msg", friendly(err), "err"); }
   });
-  document.getElementById("s-logout").addEventListener("click", logout);
-  document.getElementById("s-cookies").addEventListener("click", () => window.openConsent && window.openConsent());
-  document.getElementById("s-reset").addEventListener("click", () => window.resetConsent && window.resetConsent());
+  $("av-rm").addEventListener("click", async () => {
+    try { await saveUserDoc({ avatar: "" }); try { localStorage.removeItem(avKey()); } catch (e) {} paintAvatar(); flash("av-msg", t("set.saved")); }
+    catch (err) { flash("av-msg", friendly(err), "err"); }
+  });
+
+  /* ---------- name ---------- */
+  $("name-save").addEventListener("click", async () => {
+    const v = $("name-in").value.trim();
+    if (v.length < 2) return flash("name-msg", "Please enter your full name.", "err");
+    try {
+      await setDisplayName(v);
+      try { localStorage.setItem("gyaan_name_" + user.uid, v); } catch (e) {}
+      await saveUserDoc({ name: v }).catch(() => {});
+      $("s-name").textContent = v; flash("name-msg", t("set.saved"));
+    } catch (err) { flash("name-msg", friendly(err), "err"); }
+  });
+
+  /* ---------- password / email ---------- */
+  $("pw-save").addEventListener("click", async () => {
+    const cur = $("pw-cur").value, n1 = $("pw-new").value, n2 = $("pw-new2").value, b = $("pw-save");
+    if (!cur) return flash("pw-msg", "Enter your current password.", "err");
+    if (n1.length < 6) return flash("pw-msg", "Your password must be at least 6 characters long.", "err");
+    if (n1 !== n2) return flash("pw-msg", "The new passwords do not match.", "err");
+    if (n1 === cur) return flash("pw-msg", "The new password must be different from the current one.", "err");
+    busy(b, true);
+    try { await changePassword(cur, n1); ["pw-cur", "pw-new", "pw-new2"].forEach(i => $(i).value = ""); flash("pw-msg", "Password changed."); }
+    catch (err) { flash("pw-msg", friendly(err), "err"); }
+    busy(b, false);
+  });
+  $("em-save").addEventListener("click", async () => {
+    const ne = $("em-new").value.trim(), pw = $("em-pw").value, b = $("em-save");
+    if (!/^\S+@\S+\.\S+$/.test(ne)) return flash("em-msg", "Please enter a valid new email address.", "err");
+    if (ne.toLowerCase() === (user.email || "").toLowerCase()) return flash("em-msg", "That is already your email address.", "err");
+    if (!pw) return flash("em-msg", "Enter your current password.", "err");
+    busy(b, true);
+    try { await changeEmail(pw, ne); $("em-pw").value = ""; flash("em-msg", "We sent a verification link to " + ne + ". Click it to finish the change, then sign in with the new email."); }
+    catch (err) { flash("em-msg", friendly(err), "err"); }
+    busy(b, false);
+  });
+
+  /* ---------- devices ---------- */
+  let devCache = null;
+  const ago = ms => {
+    if (!ms) return "-";
+    const s = Math.round((Date.now() - ms) / 1000), rtf = new Intl.RelativeTimeFormat(lang() === "hi" ? "hi" : "en", { numeric: "auto" });
+    if (s < 90) return lang() === "hi" ? "अभी" : "Just now";
+    if (s < 3600) return rtf.format(-Math.round(s / 60), "minute");
+    if (s < 86400) return rtf.format(-Math.round(s / 3600), "hour");
+    return rtf.format(-Math.round(s / 86400), "day");
+  };
+  const when = ms => ms ? new Date(ms).toLocaleString(lang() === "hi" ? "hi-IN" : undefined, { dateStyle: "medium", timeStyle: "short" }) : "-";
+  function renderDevices(list) {
+    const box = $("dev-list");
+    if (!list) return;
+    if (!list.length) { box.innerHTML = `<p class="note">${t("set.noDevices")}</p>`; return; }
+    const me = deviceId();
+    box.innerHTML = list.map(d => {
+      const icon = d.type === "Phone" || d.type === "Tablet" ? "📱" : "💻", mine = d.id === me, last = toMs(d.lastActive);
+      const loc = [d.city, d.region, d.country].filter(Boolean).join(", ");
+      const stale = Date.now() - last > 30 * 86400000;
+      return `<div class="dev"><div class="di">${icon}</div>
+        <div class="dt"><b>${esc(d.browser || "Browser")} · ${esc(d.os || "")}${mine ? `<span class="pill-sm">${t("set.thisDevice")}</span>` : ""}${stale ? '<span class="pill-sm warn">30d+</span>' : ""}</b>
+          <small>${esc(d.type || "")}${loc ? " · 📍 " + esc(loc) : ""}${d.ipMasked ? " · " + esc(d.ipMasked) : ""}</small>
+          <small>${t("set.lastActive")}: ${mine ? (lang() === "hi" ? "अभी" : "Now") : esc(ago(last))} · ${t("set.signedIn")}: ${esc(when(toMs(d.loginAt)))}</small></div>
+        ${mine ? "" : `<button class="btn btn-ghost btn-sm" data-rm="${esc(d.id)}">${t("set.logoutDevice")}</button>`}</div>`;
+    }).join("");
+  }
+  async function loadDevices() {
+    if (isDemo()) { $("dev-list").innerHTML = '<p class="note">Not available in demo mode.</p>'; return; }
+    try { await sessionReady(); devCache = await listDevices(user.uid); renderDevices(devCache); }
+    catch (err) { $("dev-list").innerHTML = `<p class="note">${esc(friendly(err))}</p>`; }
+  }
+  $("dev-refresh").addEventListener("click", loadDevices);
+  $("dev-list").addEventListener("click", async e => {
+    const b = e.target.closest("button[data-rm]"); if (!b) return;
+    if (!confirm("Log out this device? It will be signed out within a moment.")) return;
+    try { await removeDevice(user.uid, b.dataset.rm); flash("dev-msg", "Device removed. It will be signed out the next time it connects."); await loadDevices(); }
+    catch (err) { flash("dev-msg", friendly(err), "err"); }
+  });
+  $("dev-others").addEventListener("click", async () => {
+    if (!confirm("Log out every other device? This device stays signed in.")) return;
+    try { await logoutOthers(user.uid); flash("dev-msg", "All other devices will be signed out."); await loadDevices(); }
+    catch (err) { flash("dev-msg", friendly(err), "err"); }
+  });
+  $("dev-all").addEventListener("click", async () => {
+    if (!confirm("Log out from ALL devices, including this one?")) return;
+    try { await logoutEverywhere(user.uid); } catch (err) { flash("dev-msg", friendly(err), "err"); }
+  });
+
+  /* ---------- data ---------- */
+  $("clear-cache").addEventListener("click", () => {
+    let n = 0;
+    try { Object.keys(localStorage).filter(k => /^gyaan_(cache_|prog_|pdf_)/.test(k)).forEach(k => { localStorage.removeItem(k); n++; }); } catch (e) {}
+    flash("cache-msg", n + " saved item(s) cleared from this device.");
+  });
+  $("export").addEventListener("click", async () => {
+    const b = $("export"); busy(b, true);
+    try {
+      const data = await exportData(user);
+      const json = JSON.stringify(data, (k, v) => (v && typeof v === "object" && v.seconds !== undefined && v.nanoseconds !== undefined) ? new Date(v.seconds * 1000).toISOString() : v, 2);
+      const slug = ((window.__site && window.__site.name) || "gyaan-hub").toLowerCase().replace(/[^a-z0-9]+/g, "-").replace(/^-|-$/g, "");
+      const a = Object.assign(document.createElement("a"), { href: URL.createObjectURL(new Blob([json], { type: "application/json" })), download: slug + "-my-data-" + new Date().toISOString().slice(0, 10) + ".json" });
+      document.body.appendChild(a); a.click(); a.remove(); URL.revokeObjectURL(a.href);
+      flash("export-msg", "Your data file was downloaded.");
+    } catch (err) { flash("export-msg", friendly(err), "err"); }
+    busy(b, false);
+  });
+
+  /* ---------- delete account ---------- */
+  $("del-open").addEventListener("click", () => {
+    const pw = hasPassword(user);
+    const bg = document.createElement("div");
+    bg.className = "modal-bg";
+    bg.innerHTML = `<div class="modal" role="dialog" aria-modal="true"><h2>${t("set.delete")}</h2><p>${t("set.deleteHint")}</p>
+      <div class="stack" style="max-width:none">
+        <input id="d-conf" placeholder="${t("set.deleteConfirm")}" autocomplete="off">
+        ${pw ? `<input id="d-pw" type="password" placeholder="${t("set.confirmPw")}" autocomplete="current-password">` : `<p class="note">A Google window will ask you to confirm it is you.</p>`}
+        <div class="acts"><button class="btn btn-danger" id="d-go">${t("set.deleteBtn")}</button><button class="btn btn-ghost" id="d-cancel">${lang() === "hi" ? "रद्द करें" : "Cancel"}</button></div>
+        <div class="inline-msg" id="d-msg"></div></div></div>`;
+    document.body.appendChild(bg);
+    const msg = x => { const m = bg.querySelector("#d-msg"); m.className = "inline-msg err"; m.textContent = x; };
+    bg.querySelector("#d-cancel").addEventListener("click", () => bg.remove());
+    bg.addEventListener("click", e => { if (e.target === bg) bg.remove(); });
+    bg.querySelector("#d-go").addEventListener("click", async e => {
+      if (bg.querySelector("#d-conf").value.trim() !== "DELETE") return msg("Type DELETE (capital letters) to confirm.");
+      e.target.disabled = true;
+      try { await deleteAccount(pw ? bg.querySelector("#d-pw").value : ""); location.href = "login.html?reason=deleted"; }
+      catch (err) { msg(friendly(err)); e.target.disabled = false; }
+    });
+  });
+
+  /* ---------- page start ---------- */
+  $("s-logout").addEventListener("click", logout);
+  $("s-cookies").addEventListener("click", () => window.openConsent && window.openConsent());
+  $("s-reset").addEventListener("click", () => window.resetConsent && window.resetConsent());
+
+  protectPage((u, demo) => {
+    user = u;
+    $("who").textContent = u.email;
+    $("nav-login").style.display = "none";
+    $("s-email").textContent = u.email;
+    $("s-name").textContent = u.displayName || "Not set";
+    $("name-in").value = u.displayName || "";
+    paintAvatar();
+    if (demo) {
+      const d = $("demo"); d.className = "msg ok";
+      d.textContent = "Demo mode: profile photo sync, devices, password and account tools work after the Firebase config in auth.js is active.";
+    }
+    const pwUser = hasPassword(u);
+    if (!pwUser) { $("sec-forms").style.display = "none"; $("google-note").style.display = isGoogleUser(u) ? "block" : "none"; }
+    applyI18n();
+    loadDevices();
+  });
+  applyI18n();
 </script>
-<script type="module" src="layout.js?v=8"></script>
+<script type="module" src="layout.js?v=9"></script>
 </body>
 </html>

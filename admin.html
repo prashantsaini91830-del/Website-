@@ -4,7 +4,9 @@
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1.0">
 <title>Admin Panel | Gyaan Hub</title>
-<link rel="stylesheet" href="style.css?v=8">
+<link rel="stylesheet" href="style.css?v=9">
+<script src="site-config.js?v=9"></script>
+<script src="theme.js?v=9"></script>
 </head>
 <body>
 <header class="nav">
@@ -26,6 +28,8 @@
         <button class="tab on" data-t="materials">Materials</button>
         <button class="tab" data-t="tests">Tests</button>
         <button class="tab" data-t="results">Results</button>
+        <button class="tab" data-t="logins">Logins</button>
+        <button class="tab" data-t="site">Site</button>
       </div>
 
       <!-- Materials -->
@@ -36,7 +40,9 @@
           <div class="field"><label for="m-s">Subject</label><input id="m-s" list="subjects" placeholder="e.g. Mathematics"><datalist id="subjects"></datalist></div>
           <div class="field"><label for="m-type">Type</label>
             <select id="m-type"><option value="Notes">Notes</option><option value="Papers">Papers</option><option value="Video">Video</option><option value="Test">Mock Test</option></select></div>
-          <div class="field"><label for="m-link">Link (PDF, Google Drive or YouTube URL)</label><input id="m-link" type="url" placeholder="https://..."></div>
+          <div class="field"><label for="m-link">Link (YouTube, Google Drive, PDF, MP4, Vimeo...)</label><input id="m-link" placeholder="https://...  or  files/notes.pdf"></div>
+          <p class="hint" style="margin:-8px 0 14px">Opens inside the website's built-in player. Sharpest PDFs: put the file in the site's <b>files/</b> folder on GitHub and use <b>files/yourfile.pdf</b> here. Drive links need “Anyone with the link can view”.</p>
+          <label class="check"><input type="checkbox" id="m-ext"><span>Open in a new tab instead of the built-in player</span></label>
           <label class="check"><input type="checkbox" id="m-active" checked><span>Visible to students</span></label>
           <div class="acts"><button class="btn btn-gold" id="m-save">Save material</button><button class="btn btn-ghost" id="m-cancel" style="display:none">Cancel edit</button></div>
         </div>
@@ -62,6 +68,29 @@
         <div class="panel"><h2>All tests (<span id="t-count">0</span>)</h2><div id="t-list"></div></div>
       </section>
 
+      <!-- Logins -->
+      <section id="tab-logins" style="padding:0;display:none">
+        <div class="panel">
+          <h2>Student logins &amp; devices</h2>
+          <p class="sub" style="margin-bottom:14px">Devices recently signed in across all accounts (browser, system, approximate place, last activity).</p>
+          <div class="toolbar" style="margin:0 0 14px"><input id="l-search" type="search" placeholder="Search by name, email, city or browser"><button class="btn btn-ghost btn-sm" id="l-refresh">Refresh</button></div>
+          <div class="tbl-wrap"><table class="tbl"><thead><tr><th>Student</th><th>Device</th><th>Location</th><th>Last active</th><th>Signed in</th></tr></thead><tbody id="l-body"><tr><td colspan="5">Open this tab to load.</td></tr></tbody></table></div>
+        </div>
+      </section>
+
+      <!-- Site -->
+      <section id="tab-site" style="padding:0;display:none">
+        <div class="panel">
+          <h2>Site settings</h2>
+          <p class="sub" style="margin-bottom:16px">Change the website name any time. It updates the menu, page titles, footer, policies and e-mails sent from the site (as <code>site_name</code>).</p>
+          <div class="field"><label for="st-name">Website name</label><input id="st-name" maxlength="40" placeholder="Gyaan Hub"></div>
+          <div class="field"><label for="st-logo">Logo letter or emoji</label><input id="st-logo" maxlength="4" placeholder="G"></div>
+          <div class="field"><label for="st-contact">Contact e-mail (shown in Privacy Policy / Terms)</label><input id="st-contact" type="email" placeholder="you@example.com"></div>
+          <div class="acts"><button class="btn btn-gold" id="st-save">Save site settings</button><button class="btn btn-ghost" id="st-reset">Reset to default</button></div>
+          <p class="hint">The EmailJS e-mail templates keep their own text. Add <code>{{site_name}}</code> inside a template if you want the new name there too.</p>
+        </div>
+      </section>
+
       <!-- Results -->
       <section id="tab-results" style="padding:0;display:none">
         <div class="kpis">
@@ -85,8 +114,11 @@
 </main>
 
 <script type="module">
-  import { protectPage, adminDiag, fsList, fsRecent, fsSave, fsDelete } from "./auth.js?v=8";
-  import { materials as sample } from "./materials.js?v=8";
+  import { protectPage, adminDiag, fsList, fsRecent, fsSave, fsDelete, fsGroup, toMs, loadSite, saveSite } from "./auth.js?v=9";
+  import { isSafeUrl, normalizeImgUrl } from "./player-utils.js?v=9";
+  import { uploadQuestionImage, hydrate, initLightbox } from "./media.js?v=9";
+  initLightbox();
+  import { materials as sample } from "./materials.js?v=9";
 
   const $ = id => document.getElementById(id);
   const esc = s => String(s ?? "").replace(/[&<>"]/g, c => ({ "&": "&amp;", "<": "&lt;", ">": "&gt;", '"': "&quot;" }[c]));
@@ -94,14 +126,16 @@
 
   let mats = [], tests = [], results = [], editM = null, editT = null;
   let qs = [newQ()];
-  function newQ() { return { q: "", opts: ["", "", "", ""], ans: 0 }; }
+  function newQ() { return { q: "", opts: ["", "", "", ""], ans: 0, img: "", optImgs: ["", "", "", ""] }; }
 
   /* ---------- tabs ---------- */
   $("tabs").addEventListener("click", e => {
     const b = e.target.closest(".tab"); if (!b) return;
     document.querySelectorAll(".tab").forEach(t => t.classList.toggle("on", t === b));
-    ["materials", "tests", "results"].forEach(n => $("tab-" + n).style.display = n === b.dataset.t ? "block" : "none");
+    ["materials", "tests", "results", "logins", "site"].forEach(n => $("tab-" + n).style.display = n === b.dataset.t ? "block" : "none");
     if (b.dataset.t === "results") loadResults();
+    if (b.dataset.t === "logins") loadLogins();
+    if (b.dataset.t === "site") loadSiteForm();
   });
 
   /* ---------- materials ---------- */
@@ -112,18 +146,18 @@
     $("subjects").innerHTML = [...new Set([...mats.map(m => m.s), ...tests.map(t => t.subject)].filter(Boolean))].map(s => `<option value="${esc(s)}">`).join("");
     $("m-list").innerHTML = mats.length ? mats.map(m => `
       <div class="row"><div class="info"><b>${esc(m.t)} <span class="badge ${m.active === false ? "off" : ""}">${m.active === false ? "Hidden" : "Live"}</span></b>
-        <small>${esc(m.s)} · ${esc(m.type)}</small></div>
+        <small>${esc(m.s)} · ${esc(m.type)}${m.external ? " · new tab" : ""}</small></div>
         <div class="acts"><button class="btn btn-ghost btn-sm" data-a="edit" data-id="${esc(m.id)}">Edit</button>
         <button class="btn btn-ghost btn-sm" data-a="toggle" data-id="${esc(m.id)}">${m.active === false ? "Show" : "Hide"}</button>
         <button class="btn btn-ghost btn-sm" data-a="del" data-id="${esc(m.id)}">Delete</button></div></div>`).join("")
       : '<p class="sub" style="margin:0">No materials yet. Add one above, or import the samples.</p>';
   }
-  function resetM() { editM = null; $("m-head").textContent = "Add material"; ["m-t", "m-s", "m-link"].forEach(i => $(i).value = ""); $("m-type").value = "Notes"; $("m-active").checked = true; $("m-cancel").style.display = "none"; }
+  function resetM() { editM = null; $("m-head").textContent = "Add material"; ["m-t", "m-s", "m-link"].forEach(i => $(i).value = ""); $("m-type").value = "Notes"; $("m-active").checked = true; $("m-ext").checked = false; $("m-cancel").style.display = "none"; }
   $("m-cancel").addEventListener("click", resetM);
   $("m-save").addEventListener("click", async () => {
-    const data = { t: $("m-t").value.trim(), s: $("m-s").value.trim(), type: $("m-type").value, link: $("m-link").value.trim(), active: $("m-active").checked };
+    const data = { t: $("m-t").value.trim(), s: $("m-s").value.trim(), type: $("m-type").value, link: $("m-link").value.trim(), external: $("m-ext").checked, active: $("m-active").checked };
     if (!data.t || !data.s) return note("Title and subject are required.", "err");
-    if (data.link && !/^https?:\/\//i.test(data.link)) return note("The link must start with http:// or https://", "err");
+    if (data.link && !isSafeUrl(data.link)) return note("The link must start with http:// or https://, or be a file path like files/notes.pdf", "err");
     try { await fsSave("materials", editM, data); note("Material saved."); resetM(); await loadMaterials(); }
     catch (e) { note("Could not save: " + (e.code || e.message), "err"); }
   });
@@ -133,25 +167,62 @@
     try {
       if (b.dataset.a === "edit") {
         editM = m.id; $("m-head").textContent = "Edit material";
-        $("m-t").value = m.t || ""; $("m-s").value = m.s || ""; $("m-type").value = m.type || "Notes"; $("m-link").value = m.link || ""; $("m-active").checked = m.active !== false;
+        $("m-t").value = m.t || ""; $("m-s").value = m.s || ""; $("m-type").value = m.type || "Notes"; $("m-link").value = m.link || ""; $("m-ext").checked = m.external === true; $("m-active").checked = m.active !== false;
         $("m-cancel").style.display = "inline-flex"; window.scrollTo(0, 0);
       } else if (b.dataset.a === "toggle") { await fsSave("materials", m.id, { active: m.active === false }); await loadMaterials(); }
       else if (b.dataset.a === "del" && confirm('Delete "' + m.t + '"?')) { await fsDelete("materials", m.id); note("Deleted."); await loadMaterials(); }
     } catch (err) { note("Action failed: " + (err.code || err.message), "err"); }
   });
   $("m-seed").addEventListener("click", async () => {
-    try { for (const m of sample) await fsSave("materials", null, { t: m.t, s: m.s, type: m.type, link: m.link === "#" ? "" : m.link, active: true }); note("Sample materials imported."); await loadMaterials(); }
+    try { for (const m of sample) await fsSave("materials", null, { t: m.t, s: m.s, type: m.type, link: m.link === "#" ? "" : m.link, external: false, active: true }); note("Sample materials imported."); await loadMaterials(); }
     catch (e) { note("Import failed: " + (e.code || e.message), "err"); }
   });
 
   /* ---------- tests ---------- */
+  function imgCtl(i, j) {                       // j undefined = the question itself, otherwise option j
+    const isQ = j === undefined, ref = isQ ? qs[i].img : qs[i].optImgs[j];
+    const at = `data-i="${i}"` + (isQ ? "" : ` data-j="${j}"`);
+    return `<div class="imgctl ${isQ ? "" : "opt"}">${ref ? `<img class="thumb zoomable" data-ref="${esc(ref)}" alt="">` : ""}
+      <button type="button" class="btn btn-ghost btn-xs" data-img="up" ${at}>📷 ${ref ? "Replace" : (isQ ? "Add image" : "Image")}</button>
+      <button type="button" class="btn btn-ghost btn-xs" data-img="url" ${at}>🔗 URL</button>
+      ${ref ? `<button type="button" class="btn btn-ghost btn-xs" data-img="rm" ${at}>✕ Remove</button>` : ""}</div>`;
+  }
   function renderQs() {
     $("t-qs").innerHTML = qs.map((q, i) => `
       <div class="qblock"><div class="qhead"><b>Question ${i + 1}</b>${qs.length > 1 ? `<button type="button" class="linkbtn" data-rm="${i}">Remove</button>` : ""}</div>
         <textarea data-q="${i}" rows="2" placeholder="Type the question">${esc(q.q)}</textarea>
-        ${q.opts.map((o, j) => `<label class="optrow"><input type="radio" name="ans${i}" data-a="${i}" value="${j}" ${q.ans === j ? "checked" : ""}><input type="text" data-o="${i}:${j}" value="${esc(o)}" placeholder="Option ${"ABCD"[j]}"></label>`).join("")}
-        <small>Select the round button next to the correct option.</small></div>`).join("");
+        ${imgCtl(i)}
+        ${q.opts.map((o, j) => `<label class="optrow"><input type="radio" name="ans${i}" data-a="${i}" value="${j}" ${q.ans === j ? "checked" : ""}><input type="text" data-o="${i}:${j}" value="${esc(o)}" placeholder="Option ${"ABCD"[j]} (text, or just an image below)"></label>${imgCtl(i, j)}`).join("")}
+        <small>Select the round button next to the correct option. Images are optional (upload, or paste a link).</small></div>`).join("");
+    hydrate($("t-qs"));
   }
+  // one hidden file picker shared by every question / option
+  const pick = Object.assign(document.createElement("input"), { type: "file", accept: "image/*" });
+  let pickFor = null;
+  pick.addEventListener("change", async () => {
+    const f = pick.files[0]; pick.value = "";
+    if (!f || !pickFor) return;
+    const { i, j } = pickFor;
+    note("Uploading image...");
+    try {
+      const ref = await uploadQuestionImage(f);
+      if (j === undefined) qs[i].img = ref; else qs[i].optImgs[j] = ref;
+      renderQs(); note("Image added.");
+    } catch (e) { note("Image upload failed: " + (e.code === "permission-denied" ? "publish the new Firestore rules from the README (images collection)." : (e.message || e.code)), "err"); }
+  });
+  $("t-qs").addEventListener("click", e => {
+    const b = e.target.closest("[data-img]"); if (!b) return;
+    const i = +b.dataset.i, j = b.dataset.j === undefined ? undefined : +b.dataset.j, set = v => { if (j === undefined) qs[i].img = v; else qs[i].optImgs[j] = v; renderQs(); };
+    if (b.dataset.img === "up") { pickFor = { i, j }; pick.click(); }
+    else if (b.dataset.img === "rm") set("");
+    else if (b.dataset.img === "url") {
+      const u = prompt("Paste the image link (https://... or a Google Drive share link):");
+      if (u === null) return;
+      const n = normalizeImgUrl(u);
+      if (!n) return note("That is not a valid image link.", "err");
+      set(n);
+    }
+  });
   $("t-qs").addEventListener("input", e => {
     const t = e.target;
     if (t.dataset.q !== undefined) qs[+t.dataset.q].q = t.value;
@@ -178,11 +249,11 @@
     const title = $("t-title").value.trim();
     if (!title) return note("Test title is required.", "err");
     for (let i = 0; i < qs.length; i++) {
-      if (!qs[i].q.trim()) return note("Question " + (i + 1) + " is empty.", "err");
-      if (qs[i].opts.some(o => !o.trim())) return note("Question " + (i + 1) + " needs all 4 options filled in.", "err");
+      if (!qs[i].q.trim() && !qs[i].img) return note("Question " + (i + 1) + " needs text or an image.", "err");
+      if (qs[i].opts.some((o, j) => !o.trim() && !qs[i].optImgs[j])) return note("Question " + (i + 1) + ": every option needs text or an image.", "err");
     }
     const data = { title, subject: $("t-subject").value.trim(), minutes: Math.max(0, parseInt($("t-min").value, 10) || 0), active: $("t-active").checked,
-      questions: qs.map(q => ({ q: q.q.trim(), opts: q.opts.map(o => o.trim()), ans: q.ans })) };
+      questions: qs.map(q => ({ q: q.q.trim(), opts: q.opts.map(o => o.trim()), ans: q.ans, ...(q.img ? { img: q.img } : {}), ...(q.optImgs.some(Boolean) ? { optImgs: q.optImgs } : {}) })) };
     try { await fsSave("tests", editT, data); note("Test saved."); resetT(); await loadTests(); }
     catch (e) { note("Could not save: " + (e.code || e.message), "err"); }
   });
@@ -192,7 +263,7 @@
     try {
       if (b.dataset.a === "edit") {
         editT = t.id; $("t-head").textContent = "Edit test"; $("t-title").value = t.title || ""; $("t-subject").value = t.subject || ""; $("t-min").value = t.minutes || 0; $("t-active").checked = t.active !== false;
-        qs = (t.questions || []).map(q => ({ q: q.q, opts: [...q.opts], ans: q.ans })); if (!qs.length) qs = [newQ()];
+        qs = (t.questions || []).map(q => ({ q: q.q, opts: [...q.opts], ans: q.ans, img: q.img || "", optImgs: [0, 1, 2, 3].map(k => (q.optImgs || [])[k] || "") })); if (!qs.length) qs = [newQ()];
         renderQs(); $("t-cancel").style.display = "inline-flex"; $("t-head").scrollIntoView();
       } else if (b.dataset.a === "toggle") { await fsSave("tests", t.id, { active: t.active === false }); await loadTests(); }
       else if (b.dataset.a === "del" && confirm('Delete "' + t.title + '"?')) { await fsDelete("tests", t.id); note("Deleted."); await loadTests(); }
@@ -242,6 +313,44 @@
     a.click(); URL.revokeObjectURL(a.href);
   });
 
+  /* ---------- logins (all devices) ---------- */
+  let logins = [];
+  const ago = ms => { if (!ms) return "-"; const m = Math.round((Date.now() - ms) / 60000); return m < 2 ? "Just now" : m < 60 ? m + " min ago" : m < 1440 ? Math.round(m / 60) + " h ago" : Math.round(m / 1440) + " d ago"; };
+  function drawLogins() {
+    const q = $("l-search").value.trim().toLowerCase();
+    const rows = logins.filter(d => !q || [d.name, d.email, d.city, d.country, d.browser, d.os].join(" ").toLowerCase().includes(q));
+    $("l-body").innerHTML = rows.length ? rows.map(d => `<tr><td><b>${esc(d.name || (d.email || "").split("@")[0])}</b><br><small>${esc(d.email)}</small></td>
+      <td>${d.type === "Computer" ? "💻" : "📱"} ${esc(d.browser || "")} · ${esc(d.os || "")}</td>
+      <td>${esc([d.city, d.region, d.country].filter(Boolean).join(", ") || "-")}<br><small>${esc(d.ipMasked || "")}</small></td>
+      <td>${esc(ago(toMs(d.lastActive)))}</td><td>${esc(toMs(d.loginAt) ? new Date(toMs(d.loginAt)).toLocaleString() : "-")}</td></tr>`).join("") : '<tr><td colspan="5">No devices found.</td></tr>';
+  }
+  async function loadLogins() {
+    try { logins = (await fsGroup("devices", 400)).sort((a, b) => toMs(b.lastActive) - toMs(a.lastActive)); drawLogins(); }
+    catch (e) { $("l-body").innerHTML = '<tr><td colspan="5">Could not load: ' + esc(e.code || e.message) + '. Publish the new Firestore rules from the README (collection group “devices”).</td></tr>'; }
+  }
+  $("l-search").addEventListener("input", drawLogins);
+  $("l-refresh").addEventListener("click", loadLogins);
+
+  /* ---------- site settings (name / logo / contact) ---------- */
+  async function loadSiteForm() {
+    const cached = (() => { try { return JSON.parse(localStorage.getItem("gyaan_site") || "null"); } catch (e) { return null; } })() || {};
+    const s = (await loadSite()) || cached;
+    [["st-name", s.name], ["st-logo", s.logo], ["st-contact", s.contact]].forEach(([id, v]) => { if (!$(id).dataset.touched) $(id).value = v || ""; });   // never overwrite what you already typed
+  }
+  ["st-name", "st-logo", "st-contact"].forEach(id => $(id).addEventListener("input", () => { $(id).dataset.touched = "1"; }));
+  async function writeSite(data) {
+    await saveSite(data);
+    try { localStorage.setItem("gyaan_site", JSON.stringify(data)); } catch (e) {}
+    note("Saved. Reloading to show the new name...");
+    setTimeout(() => location.reload(), 900);
+  }
+  $("st-save").addEventListener("click", async () => {
+    const data = { name: $("st-name").value.trim(), logo: $("st-logo").value.trim(), contact: $("st-contact").value.trim() };
+    if (data.contact && !/^\S+@\S+\.\S+$/.test(data.contact)) return note("Please enter a valid contact e-mail.", "err");
+    try { await writeSite(data); } catch (e) { note("Could not save: " + (e.code === "permission-denied" ? "publish the new Firestore rules from the README (settings collection)." : (e.code || e.message)), "err"); }
+  });
+  $("st-reset").addEventListener("click", async () => { try { await writeSite({ name: "", logo: "", contact: "" }); } catch (e) { note("Could not save: " + (e.code || e.message), "err"); } });
+
   /* ---------- start ---------- */
   protectPage(async user => {
     $("who").textContent = user.email;
@@ -266,6 +375,6 @@
     catch (e) { note("Could not load data: " + (e.code || e.message) + ". Check that the Firestore rules are published.", "err"); }
   });
 </script>
-<script type="module" src="layout.js?v=8"></script>
+<script type="module" src="layout.js?v=9"></script>
 </body>
 </html>

@@ -4,7 +4,9 @@
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1.0">
 <title>Online Tests | Gyaan Hub</title>
-<link rel="stylesheet" href="style.css?v=8">
+<link rel="stylesheet" href="style.css?v=9">
+<script src="site-config.js?v=9"></script>
+<script src="theme.js?v=9"></script>
 </head>
 <body>
 <header class="nav">
@@ -18,8 +20,8 @@
 <main class="dash">
   <div class="container">
     <div id="v-list">
-      <h1>Online Tests 📝</h1>
-      <p class="sub">Pick a test, answer within the time limit and see your score instantly.</p>
+      <h1><span data-i18n="tests.title">Online Tests</span> 📝</h1>
+      <p class="sub" data-i18n="tests.sub">Pick a test, answer within the time limit and see your score instantly.</p>
       <div id="list-msg" class="msg"></div>
       <div id="name-box" class="panel" style="display:none">
         <h2>Your name</h2>
@@ -36,6 +38,7 @@
       <div class="prog"><i id="r-prog" style="width:0"></i></div>
       <small id="r-count" style="color:var(--muted)"></small>
       <div class="qtext" id="r-q"></div>
+      <div id="r-img"></div>
       <div id="r-opts"></div>
       <div class="qnav">
         <button class="btn btn-ghost" id="r-prev">← Previous</button>
@@ -61,7 +64,11 @@
   </div>
 </main>
 <script type="module">
-  import { protectPage, fsList, fsListFresh, cacheGet, fsSave, fsGet, fsSet, fsQuery, setDisplayName } from "./auth.js?v=8";
+  import { protectPage, fsList, fsListFresh, cacheGet, fsSave, fsGet, fsSet, fsQuery, setDisplayName } from "./auth.js?v=9";
+  import { imgHtml, hydrate, prefetch, initLightbox } from "./media.js?v=9";
+  import { getPrefs } from "./prefs.js?v=9";
+  import { applyI18n } from "./i18n.js?v=9";
+  initLightbox();
 
   // Result email: uses the second EmailJS account (the OTP email in verify.html uses the first one)
   const EMAILJS = { serviceId: "service_mjgqhwh", publicKey: "d2kmZ1Cg5dV8cwq6a", resultTemplateId: "template_wk41h39" };
@@ -133,7 +140,11 @@
     $("r-count").textContent = "Question " + (idx + 1) + " of " + n;
     $("r-prog").style.width = ((idx + 1) / n * 100) + "%";
     $("r-q").textContent = q.q;
-    $("r-opts").innerHTML = q.opts.map((o, j) => `<button class="opt ${answers[idx] === j ? "sel" : ""}" data-j="${j}"><b>${"ABCD"[j]}.</b> ${esc(o)}</button>`).join("");
+    $("r-img").innerHTML = imgHtml(q.img, "zoomable", "Question image");
+    $("r-opts").innerHTML = q.opts.map((o, j) => `<button class="opt ${answers[idx] === j ? "sel" : ""}" data-j="${j}"><b>${"ABCD"[j]}.</b> <span class="opt-text">${esc(o)}</span>${imgHtml((q.optImgs || [])[j], "zoomable", "Option " + "ABCD"[j])}</button>`).join("");
+    hydrate($("v-run"));
+    const nx = cur.questions[idx + 1];
+    if (nx) prefetch([nx.img, ...(nx.optImgs || [])]);
     $("r-prev").style.visibility = idx === 0 ? "hidden" : "visible";
     $("r-next").textContent = idx === n - 1 ? "Submit test" : "Next →";
   }
@@ -149,9 +160,11 @@
     $("s-line").textContent = pct + "% · " + (pct >= 80 ? "Excellent work!" : pct >= 50 ? "Good effort, keep practicing." : "Review the answers below and try again.");
     $("s-review").innerHTML = cur.questions.map((q, i) => `
       <div class="panel"><div class="qtext">${i + 1}. ${esc(q.q)}</div>
-        ${q.opts.map((o, j) => `<div class="opt ${j === q.ans ? "good" : (j === answers[i] ? "bad" : "")}" style="cursor:default"><b>${"ABCD"[j]}.</b> ${esc(o)}${j === q.ans ? " ✓" : (j === answers[i] ? " (your answer)" : "")}</div>`).join("")}
+        ${imgHtml(q.img, "zoomable", "Question image")}
+        ${q.opts.map((o, j) => `<div class="opt ${j === q.ans ? "good" : (j === answers[i] ? "bad" : "")}" style="cursor:default"><b>${"ABCD"[j]}.</b> <span class="opt-text">${esc(o)}</span>${j === q.ans ? " ✓" : (j === answers[i] ? " (your answer)" : "")}${imgHtml((q.optImgs || [])[j], "zoomable", "Option " + "ABCD"[j])}</div>`).join("")}
         ${answers[i] < 0 ? '<small style="color:var(--muted)">Not answered</small>' : ""}
       </div>`).join("");
+    hydrate($("s-review"));
     $("s-msg").className = "msg"; $("s-msg").textContent = "";
     $("s-rank").style.display = "none"; $("s-mail").textContent = "";
     view("v-result");
@@ -179,7 +192,7 @@
     }
 
     // 3) email the result to the student's registered address
-    if (!EMAILJS.resultTemplateId.startsWith("PASTE_")) {
+    if (!EMAILJS.resultTemplateId.startsWith("PASTE_") && getPrefs().emailResults) {
       try {
         const res = await fetch("https://api.emailjs.com/api/v1.0/email/send", {
           method: "POST", headers: { "Content-Type": "application/json" },
@@ -190,14 +203,14 @@
               test_title: cur.title, subject_name: cur.subject || "General",
               score, total: n, percent: pct,
               rank: rank ? "#" + rank : "-", rank_total: rankTotal || "-",
-              date: new Date().toLocaleString(), site_url: location.origin
+              date: new Date().toLocaleString(), site_url: location.origin, site_name: (window.__site && window.__site.name) || "Gyaan Hub"
             }
           })
         });
         if (!res.ok) throw new Error(await res.text());
         $("s-mail").textContent = "✉️ Your result was emailed to " + user.email;
       } catch (e) { $("s-mail").textContent = "We could not email your result, but it is saved on the site."; }
-    }
+    } else if (!getPrefs().emailResults) { $("s-mail").textContent = "Result emails are off (change this in Settings → Notifications)."; }
   }
 
   $("tests").addEventListener("click", e => { const b = e.target.closest("button[data-id]"); if (b) start(b.dataset.id); });
@@ -216,6 +229,7 @@
     $("name-box").style.display = "none"; $("list-msg").className = "msg"; $("list-msg").textContent = "";
   });
 
+  applyI18n();
   protectPage(u => {
     user = u; $("who").textContent = u.email;
     name = u.displayName || localStorage.getItem("gyaan_name_" + u.uid) || "";
@@ -223,6 +237,6 @@
     loadTests();
   });
 </script>
-<script type="module" src="layout.js?v=8"></script>
+<script type="module" src="layout.js?v=9"></script>
 </body>
 </html>

@@ -4,7 +4,9 @@
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1.0">
 <title>Dashboard | Gyaan Hub</title>
-<link rel="stylesheet" href="style.css?v=8">
+<link rel="stylesheet" href="style.css?v=9">
+<script src="site-config.js?v=9"></script>
+<script src="theme.js?v=9"></script>
 </head>
 <body>
 <header class="nav">
@@ -19,39 +21,49 @@
 
 <main class="dash">
   <div class="container">
-    <h1>Welcome, <span class="gold" id="name">student</span> 👋</h1>
-    <p class="sub">What would you like to study today? Pick your material below.</p>
+    <h1><span data-i18n="dash.welcome">Welcome,</span> <span class="gold" id="name">student</span> 👋</h1>
+    <p class="sub" data-i18n="dash.sub">What would you like to study today? Pick your material below.</p>
     <div id="demo" class="msg"></div>
+    <div id="new-banner" class="banner" style="display:none"></div>
+    <div id="cont-box" style="display:none">
+      <h2 style="font-size:1.4rem;margin:8px 0 14px">▶️ <span data-i18n="dash.continue">Continue learning</span></h2>
+      <div id="cont-list" class="grid g3" style="margin-bottom:34px"></div>
+    </div>
 
     <div class="toolbar">
-      <input id="search" type="search" placeholder="Search by title or subject, e.g. Calculus, Physics, DBMS...">
+      <input id="search" type="search" data-i18n-ph="dash.search" placeholder="Search by title or subject, e.g. Calculus, Physics, DBMS...">
     </div>
     <div class="toolbar" style="margin-top:0" id="chips">
-      <button class="chip on" data-f="all">All</button>
-      <button class="chip" data-f="Notes">Notes</button>
-      <button class="chip" data-f="Papers">Papers</button>
-      <button class="chip" data-f="Video">Videos</button>
-      <button class="chip" data-f="Test">Mock Tests</button>
+      <button class="chip on" data-f="all" data-i18n="dash.all">All</button>
+      <button class="chip" data-f="Notes" data-i18n="dash.notes">Notes</button>
+      <button class="chip" data-f="Papers" data-i18n="dash.papers">Papers</button>
+      <button class="chip" data-f="Video" data-i18n="dash.videos">Videos</button>
+      <button class="chip" data-f="Test" data-i18n="dash.mock">Mock Tests</button>
     </div>
     <p class="count" id="count"></p>
 
     <div id="tests-box" style="display:none">
-      <h2 style="font-size:1.4rem;margin:8px 0 14px">📝 Online Tests</h2>
+      <h2 style="font-size:1.4rem;margin:8px 0 14px">📝 <span data-i18n="dash.onlineTests">Online Tests</span></h2>
       <div id="tests-list" class="grid g3" style="margin-bottom:34px"></div>
-      <h2 style="font-size:1.4rem;margin:8px 0 14px">📚 Study Material</h2>
+      <h2 style="font-size:1.4rem;margin:8px 0 14px">📚 <span data-i18n="dash.material">Study Material</span></h2>
     </div>
     <div id="list" class="grid g3"></div>
-    <div id="empty" class="empty" style="display:none">No results found. Try a different search term or filter.</div>
+    <div id="empty" class="empty" style="display:none" data-i18n="dash.empty">No results found. Try a different search term or filter.</div>
   </div>
 </main>
 
 <script type="module">
-  import { protectPage, logout, fsList, fsListFresh, cacheGet } from "./auth.js?v=8";
-  import { materials as sample, iconFor } from "./materials.js?v=8";
+  import { protectPage, logout, fsList, fsListFresh, cacheGet, listProgress, toMs } from "./auth.js?v=9";
+  import { materials as sample, iconFor } from "./materials.js?v=9";
+  import { getPrefs } from "./prefs.js?v=9";
+  import { t, applyI18n } from "./i18n.js?v=9";
+  import { isSafeUrl } from "./player-utils.js?v=9";
 
   let materials = sample;
   const esc = s => String(s ?? "").replace(/[&<>"]/g, c => ({ "&": "&amp;", "<": "&lt;", ">": "&gt;", '"': "&quot;" }[c]));
-  const safe = u => /^https?:\/\//i.test(u || "") ? esc(u) : "#";
+  const safe = u => isSafeUrl(u) ? esc(u) : "#";
+  const playerHref = (link, title, type) => "player.html?u=" + encodeURIComponent(link) + "&title=" + encodeURIComponent(title) + "&type=" + encodeURIComponent(type || "");
+  const NEW_MS = 7 * 86400000;
   function showTests(rows) {
     const t = (rows || []).filter(x => x.active !== false && Array.isArray(x.questions) && x.questions.length);
     document.getElementById("tests-box").style.display = t.length ? "block" : "none";
@@ -67,7 +79,7 @@
   }
   const applyMaterials = rows => {
     const r = (rows || []).filter(x => x.active !== false);
-    if (r.length) materials = r.map(x => ({ t: x.t, s: x.s, type: x.type, icon: iconFor(x.type), link: x.link }));
+    if (r.length) materials = r.map(x => ({ t: x.t, s: x.s, type: x.type, icon: iconFor(x.type), link: x.link, external: x.external === true, created: toMs(x.createdAt) }));
     return r.length > 0;
   };
   async function loadMaterials() {
@@ -81,14 +93,23 @@
     const rows = materials.filter(m =>
       (filter === "all" || m.type === filter) &&
       (m.t + " " + m.s).toLowerCase().includes(q.trim().toLowerCase()));
-    list.innerHTML = rows.map(m => `
-      <a class="card" href="${safe(m.link)}" target="_blank" rel="noopener">
+    const alerts = getPrefs().newAlerts;
+    list.innerHTML = rows.map(m => {
+      const direct = m.type === "Test" || m.external || !isSafeUrl(m.link);
+      const href = direct ? safe(m.link) : playerHref(m.link, m.t, m.type);
+      const isNew = alerts && m.created && Date.now() - m.created < NEW_MS;
+      return `
+      <a class="card" href="${href}" ${direct ? 'target="_blank" rel="noopener"' : ""}>
         <div class="ico">${m.icon}</div>
-        <h3>${esc(m.t)}</h3>
+        <h3>${esc(m.t)}${isNew ? `<span class="new-badge">${t("dash.new")}</span>` : ""}</h3>
         <div class="mat"><small>${esc(m.s)}</small><span class="tag" style="margin:0">${esc(m.type)}</span></div>
-      </a>`).join("");
+      </a>`;
+    }).join("");
     empty.style.display = rows.length ? "none" : "block";
-    count.textContent = rows.length + (rows.length === 1 ? " resource" : " resources") + " available";
+    count.textContent = rows.length + " " + (rows.length === 1 ? t("dash.one") : t("dash.many"));
+    const nn = getPrefs().newAlerts ? materials.filter(m => m.created && Date.now() - m.created < NEW_MS).length : 0;
+    const nb = document.getElementById("new-banner");
+    nb.style.display = nn ? "flex" : "none"; nb.innerHTML = nn ? "🆕 <span><b>" + nn + "</b> " + t("dash.newBanner") + "</span>" : "";
   }
 
   document.getElementById("search").addEventListener("input", e => { q = e.target.value; render(); });
@@ -98,6 +119,30 @@
     b.classList.add("on"); filter = b.dataset.f; render();
   });
   document.getElementById("logout").addEventListener("click", logout);
+
+  // "Continue learning": what you opened last (this device at once, then your account)
+  function showContinue(rows) {
+    const r = (rows || []).filter(x => x && x.url && isSafeUrl(x.url) && x.pct > 1 && x.pct < 97).sort((a, b) => (b.updatedMs || b.ts || 0) - (a.updatedMs || a.ts || 0)).slice(0, 3);
+    document.getElementById("cont-box").style.display = r.length ? "block" : "none";
+    document.getElementById("cont-list").innerHTML = r.map(x => `
+      <a class="card has-prog" href="${esc(playerHref(x.url, x.title || "Study material", x.type))}">
+        <div class="ico">${iconFor(x.type)}</div><h3>${esc(x.title || "Study material")}</h3>
+        <div class="mat"><small>${esc(x.type || "")} · ${x.pct}%</small><span class="tag" style="margin:0">${t("dash.resume")}</span></div>
+        <div class="cont-bar"><i style="width:${x.pct}%"></i></div>
+      </a>`).join("");
+  }
+  async function loadContinue(uid) {
+    const local = [];
+    try { Object.keys(localStorage).filter(k => k.startsWith("gyaan_prog_" + uid + "_")).forEach(k => local.push(JSON.parse(localStorage.getItem(k)))); } catch (e) {}
+    showContinue(local);
+    try {
+      const remote = await listProgress();
+      const byUrl = {};
+      [...local, ...remote].forEach(x => { if (x && x.url) { const t0 = x.updatedMs || x.ts || toMs(x.updatedAt); if (!byUrl[x.url] || t0 > (byUrl[x.url].updatedMs || byUrl[x.url].ts || 0)) byUrl[x.url] = { ...x, updatedMs: t0 }; } });
+      showContinue(Object.values(byUrl));
+    } catch (e) { /* offline: keep the local list */ }
+  }
+  window.addEventListener("prefs-changed", () => { applyI18n(); render(); });
 
   protectPage((user, demo) => {
     const n = (user.displayName || user.email.split("@")[0]);
@@ -115,8 +160,10 @@
     showTests(cacheGet("tests"));
     loadMaterials().then(render);
     loadTests();
+    loadContinue(user.uid);
+    applyI18n();
   });
 </script>
-<script type="module" src="layout.js?v=8"></script>
+<script type="module" src="layout.js?v=9"></script>
 </body>
 </html>

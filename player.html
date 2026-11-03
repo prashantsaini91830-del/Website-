@@ -1,0 +1,332 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Viewer | Gyaan Hub</title>
+<link rel="stylesheet" href="style.css?v=9">
+<script src="site-config.js?v=9"></script>
+<script src="theme.js?v=9"></script>
+</head>
+<body>
+<header class="nav">
+  <div class="container">
+    <a href="index.html" class="logo"><i>G</i> Gyaan Hub</a>
+    <div class="nav-cta">
+      <span id="who" style="color:var(--muted);font-size:.9rem"></span>
+      <a href="dashboard.html" class="btn btn-ghost" id="back" data-i18n="pl.back">Back</a>
+    </div>
+  </div>
+</header>
+
+<main>
+  <div class="container pl-wrap">
+    <div class="pl-head">
+      <div><span class="tag" id="pl-type"></span><h1 id="pl-title">Loading...</h1></div>
+      <div class="acts" id="pl-actions"></div>
+    </div>
+    <div id="pl-msg" class="msg"></div>
+    <div class="pl-stage" id="stage"></div>
+    <div class="pl-bar" id="pl-bar"></div>
+    <p class="pl-note" id="pl-note"></p>
+  </div>
+</main>
+
+<script type="module">
+  import { protectPage, saveProgress, getProgress } from "./auth.js?v=9";
+  import { detect, isSafeUrl, keyOf, fmtTime, esc, QUALITY_MAP, QUALITY_LABEL } from "./player-utils.js?v=9";
+  import { getPrefs, saverOn } from "./prefs.js?v=9";
+  import { t, applyI18n } from "./i18n.js?v=9";
+  import { initLightbox } from "./media.js?v=9";
+
+  const $ = id => document.getElementById(id);
+  const q = new URLSearchParams(location.search);
+  const src = (q.get("u") || "").trim(), title = q.get("title") || "Study material", type = q.get("type") || "";
+  const PDFJS = "https://cdnjs.cloudflare.com/ajax/libs/pdf.js/3.11.174/pdf.min.js";
+  const PDFJS_WORKER = "https://cdnjs.cloudflare.com/ajax/libs/pdf.js/3.11.174/pdf.worker.min.js";
+  const HLSJS = "https://cdnjs.cloudflare.com/ajax/libs/hls.js/1.5.13/hls.min.js";
+  const SPEEDS = [0.5, 0.75, 1, 1.25, 1.5, 1.75, 2];
+  const prefs = getPrefs(), saver = saverOn();
+  const stage = $("stage"), bar = $("pl-bar");
+  let user = null, key = "", rec = { title, type, url: src, pos: 0, dur: 0, page: 1, pages: 0, pct: 0 };
+
+  const say = (text, kind = "err") => { const m = $("pl-msg"); m.className = "msg " + kind; m.textContent = text; };
+  const loadScript = url => new Promise((res, rej) => { if (document.querySelector(`script[src="${url}"]`)) return res(); const s = document.createElement("script"); s.src = url; s.onload = res; s.onerror = () => rej(new Error("Could not load " + url)); document.head.appendChild(s); });
+  function toast(text, actionLabel, action) {
+    document.querySelectorAll(".toast").forEach(x => x.remove());
+    const el = document.createElement("div"); el.className = "toast";
+    el.innerHTML = `<span>${esc(text)}</span>${actionLabel ? `<button>${esc(actionLabel)}</button>` : ""}`;
+    if (actionLabel) el.querySelector("button").addEventListener("click", () => { action(); el.remove(); });
+    document.body.appendChild(el); setTimeout(() => el.remove(), 9000);
+  }
+  const btn = (label, onclick, cls = "btn btn-ghost btn-sm") => { const b = document.createElement("button"); b.className = cls; b.innerHTML = label; b.addEventListener("click", onclick); return b; };
+  const selectEl = (label, options, value, onchange) => {
+    const w = document.createElement("label"); w.innerHTML = `<span>${esc(label)}</span>`;
+    const s = document.createElement("select"); s.innerHTML = options.map(([v, l]) => `<option value="${esc(v)}">${esc(l)}</option>`).join("");
+    s.value = String(value); s.addEventListener("change", () => onchange(s.value)); w.appendChild(s); return { wrap: w, sel: s };
+  };
+
+  /* ---------- progress (resume) : saved on this device at once, synced to the account now and then ---------- */
+  const lk = () => "gyaan_prog_" + user.uid + "_" + key;
+  const readLocal = () => { try { return JSON.parse(localStorage.getItem(lk()) || "null"); } catch (e) { return null; } };
+  let lastUp = 0;
+  function save(force) {
+    rec.ts = Date.now();
+    rec.pct = rec.dur ? Math.min(100, Math.round(rec.pos / rec.dur * 100)) : (rec.pages ? Math.round(rec.page / rec.pages * 100) : 0);
+    try { localStorage.setItem(lk(), JSON.stringify(rec)); } catch (e) {}
+    if (force || Date.now() - lastUp > 30000) { lastUp = Date.now(); saveProgress(key, { ...rec, updatedMs: rec.ts }).catch(() => {}); }
+  }
+  async function loadSaved() {
+    if (!prefs.resume) return null;
+    let a = readLocal(), b = null;
+    try { b = await Promise.race([getProgress(key), new Promise(r => setTimeout(() => r(null), 2500))]); } catch (e) {}
+    return [a, b].filter(Boolean).sort((x, y) => (y.updatedMs || y.ts || 0) - (x.updatedMs || x.ts || 0))[0] || null;
+  }
+  document.addEventListener("visibilitychange", () => { if (document.hidden && key) save(true); });
+  window.addEventListener("pagehide", () => { if (key) save(true); });
+
+  /* ---------- actions in the header ---------- */
+  function headerActions(info, dlUrl) {
+    const box = $("pl-actions");
+    box.innerHTML = "";
+    const open = document.createElement("a"); open.className = "btn btn-ghost btn-sm"; open.target = "_blank"; open.rel = "noopener"; open.href = info.original || src; open.textContent = "↗ " + t("pl.open");
+    box.appendChild(open);
+    if (dlUrl && prefs.showDownload) { const d = document.createElement("a"); d.className = "btn btn-ghost btn-sm"; d.href = dlUrl; d.target = "_blank"; d.rel = "noopener"; d.download = ""; d.textContent = "⬇ " + t("pl.download"); box.appendChild(d); }
+    box.appendChild(btn("⛶ " + t("pl.fullscreen"), () => { if (document.fullscreenElement) document.exitFullscreen(); else (stage.requestFullscreen || stage.webkitRequestFullscreen || (() => {})).call(stage); }));
+  }
+
+  /* ---------- YouTube ---------- */
+  function effQuality() {
+    let qv = prefs.quality || "auto";
+    if (saver && ["auto", "1080p", "720p"].includes(qv)) qv = "360p";
+    return qv;
+  }
+  async function openYouTube(info) {
+    stage.className = "pl-stage ratio"; stage.innerHTML = '<div id="yt"></div>';
+    await new Promise(res => { if (window.YT && window.YT.Player) return res(); window.onYouTubeIframeAPIReady = res; const s = document.createElement("script"); s.src = "https://www.youtube.com/iframe_api"; document.head.appendChild(s); });
+    const saved = info.id ? await loadSaved() : null;
+    const startAt = saved && saved.pos > 10 && saved.pos < (saved.dur || 1e9) - 15 ? Math.floor(saved.pos) : (info.start || 0);
+    let player, timer, applied = false, speedSel, qualSel;
+    const vars = { autoplay: prefs.autoplay && !saver ? 1 : 0, rel: 0, modestbranding: 1, playsinline: 1, start: startAt, origin: location.origin };
+    if (!info.id && info.list) { vars.listType = "playlist"; vars.list = info.list; }
+    player = new YT.Player("yt", {
+      host: "https://www.youtube-nocookie.com", videoId: info.id || undefined, playerVars: vars,
+      events: {
+        onReady: () => {
+          try { player.setPlaybackRate(prefs.speed || 1); } catch (e) {}
+          rec.dur = player.getDuration() || 0;
+          if (startAt > 10) toast(t("pl.resumed") + " " + fmtTime(startAt), t("pl.startOver"), () => player.seekTo(0, true));
+        },
+        onStateChange: ev => {
+          const S = YT.PlayerState;
+          if (ev.data === S.PLAYING) {
+            if (!applied) { applied = true; applyQuality(); fillQuality(); fillSpeed(); }
+            clearInterval(timer);
+            timer = setInterval(() => { try { rec.pos = player.getCurrentTime(); rec.dur = player.getDuration() || rec.dur; save(false); } catch (e) {} }, 5000);
+          } else {
+            clearInterval(timer);
+            if (ev.data === S.PAUSED || ev.data === S.ENDED) { try { rec.pos = ev.data === S.ENDED ? 0 : player.getCurrentTime(); rec.dur = player.getDuration() || rec.dur; save(true); } catch (e) {} }
+          }
+        },
+        onPlaybackQualityChange: () => { try { if (qualSel) qualSel.value = QUALITY_LABEL[player.getPlaybackQuality()] ? player.getPlaybackQuality() : "default"; } catch (e) {} }
+      }
+    });
+    function applyQuality() {
+      const qv = QUALITY_MAP[effQuality()] || "default";
+      try { if (qv !== "default") { player.setPlaybackQualityRange ? player.setPlaybackQualityRange(qv, qv) : player.setPlaybackQuality(qv); player.setPlaybackQuality(qv); } } catch (e) {}
+    }
+    function fillSpeed() {
+      let rates = SPEEDS; try { const r = player.getAvailablePlaybackRates(); if (r && r.length) rates = r; } catch (e) {}
+      const cur = (() => { try { return player.getPlaybackRate(); } catch (e) { return 1; } })();
+      const c = selectEl(t("pl.speed"), rates.map(r => [r, r + "x"]), cur, v => { try { player.setPlaybackRate(parseFloat(v)); } catch (e) {} });
+      speedSel = c.sel; bar.appendChild(c.wrap);
+    }
+    function fillQuality() {
+      let lv = []; try { lv = player.getAvailableQualityLevels() || []; } catch (e) {}
+      const opts = [["default", t("pl.auto")], ...lv.filter(x => x !== "auto" && QUALITY_LABEL[x]).map(x => [x, QUALITY_LABEL[x]])];
+      let cur = "default"; try { cur = player.getPlaybackQuality(); } catch (e) {}
+      const c = selectEl(t("pl.quality"), opts, opts.some(o => o[0] === cur) ? cur : "default", v => { try { if (v === "default") { player.setPlaybackQuality("default"); } else { player.setPlaybackQualityRange ? player.setPlaybackQualityRange(v, v) : player.setPlaybackQuality(v); player.setPlaybackQuality(v); } } catch (e) {} });
+      qualSel = c.sel; bar.appendChild(c.wrap);
+      $("pl-note").textContent = t("pl.qualityNote");
+    }
+    headerActions(info, null);
+  }
+
+  /* ---------- plain <video> / <audio> / HLS ---------- */
+  async function openVideo(info, hls) {
+    stage.className = "pl-stage ratio";
+    const v = document.createElement("video");
+    v.controls = true; v.playsInline = true; v.preload = saver ? "none" : "metadata"; v.setAttribute("controlsList", prefs.showDownload ? "" : "nodownload");
+    stage.appendChild(v);
+    let hlsObj = null;
+    if (hls) {
+      if (v.canPlayType("application/vnd.apple.mpegurl")) v.src = info.url;
+      else { await loadScript(HLSJS); if (window.Hls && Hls.isSupported()) { hlsObj = new Hls({ capLevelToPlayerSize: true, startLevel: saver ? 0 : -1 }); hlsObj.loadSource(info.url); hlsObj.attachMedia(v); } else throw new Error("This browser cannot play this stream."); }
+    } else v.src = info.url;
+    v.addEventListener("error", () => say("The video could not be loaded. Check the link, or use “Open original”."));
+    const saved = await loadSaved();
+    v.addEventListener("loadedmetadata", () => {
+      v.playbackRate = prefs.speed || 1; rec.dur = v.duration || 0;
+      if (saved && saved.pos > 10 && saved.pos < v.duration - 15) { v.currentTime = saved.pos; toast(t("pl.resumed") + " " + fmtTime(saved.pos), t("pl.startOver"), () => { v.currentTime = 0; }); }
+      if (prefs.autoplay && !saver) v.play().catch(() => {});
+    });
+    v.addEventListener("timeupdate", () => { rec.pos = v.currentTime; save(false); });
+    v.addEventListener("pause", () => { rec.pos = v.currentTime; save(true); });
+    v.addEventListener("ended", () => { rec.pos = 0; save(true); });
+    bar.appendChild(selectEl(t("pl.speed"), SPEEDS.map(r => [r, r + "x"]), prefs.speed || 1, val => { v.playbackRate = parseFloat(val); }).wrap);
+    if (hlsObj) hlsObj.on(Hls.Events.MANIFEST_PARSED, () => {
+      const lv = hlsObj.levels.map((l, i) => [i, (l.height ? l.height + "p" : Math.round(l.bitrate / 1000) + "k")]);
+      const c = selectEl(t("pl.quality"), [[-1, t("pl.auto")], ...lv], -1, val => { hlsObj.currentLevel = parseInt(val, 10); });
+      bar.appendChild(c.wrap);
+    });
+    if (document.pictureInPictureEnabled) bar.appendChild(btn("PiP", () => { if (document.pictureInPictureElement) document.exitPictureInPicture(); else v.requestPictureInPicture().catch(() => {}); }));
+    document.addEventListener("keydown", e => {
+      if (/INPUT|SELECT|TEXTAREA/.test(document.activeElement.tagName)) return;
+      if (e.key === "ArrowRight") v.currentTime += 10; else if (e.key === "ArrowLeft") v.currentTime -= 10; else if (e.key === " ") { e.preventDefault(); v.paused ? v.play() : v.pause(); }
+    });
+    headerActions(info, info.url);
+  }
+  function openAudio(info) {
+    stage.className = "pl-stage"; const a = document.createElement("audio"); a.controls = true; a.src = info.url; a.preload = "metadata"; stage.appendChild(a);
+    a.addEventListener("loadedmetadata", async () => { rec.dur = a.duration; a.playbackRate = prefs.speed || 1; const s = await loadSaved(); if (s && s.pos > 10) a.currentTime = s.pos; });
+    a.addEventListener("timeupdate", () => { rec.pos = a.currentTime; save(false); }); a.addEventListener("pause", () => { rec.pos = a.currentTime; save(true); });
+    bar.appendChild(selectEl(t("pl.speed"), SPEEDS.map(r => [r, r + "x"]), prefs.speed || 1, val => { a.playbackRate = parseFloat(val); }).wrap);
+    headerActions(info, info.url);
+  }
+
+  /* ---------- PDF (PDF.js: sharp canvas rendering, any zoom, resume page) ---------- */
+  async function openPdf(info, fetchUrl, dlUrl) {
+    stage.className = "pl-stage"; stage.innerHTML = `<div class="pdf-wrap"><div class="pdf-tools" id="pt"></div><div class="pdf-scroll" id="ps"><div class="pdf-status" id="pstat">${esc(t("pl.loading"))}</div></div></div>`;
+    await loadScript(PDFJS);
+    pdfjsLib.GlobalWorkerOptions.workerSrc = PDFJS_WORKER;
+    const scroller = $("ps"), tools = $("pt"), status = $("pstat");
+    const task = pdfjsLib.getDocument({ url: fetchUrl, withCredentials: false, disableAutoFetch: saver, disableStream: false });
+    task.onProgress = p => { if (p.total) status.textContent = t("pl.loading") + " " + Math.round(p.loaded / p.total * 100) + "%"; };
+    const pdf = await task.promise;
+    status.remove();
+    const n = pdf.numPages; rec.pages = n;
+    const saved = await loadSaved();
+    const first = await pdf.getPage(1), v1 = first.getViewport({ scale: 1 });
+    let zoom = 1, gen = 0, cssW = 0, curPage = 1;
+    const wraps = [], state = [];
+
+    tools.innerHTML = `<button id="p-prev" title="Previous">◀</button><input id="p-num" type="number" min="1" max="${n}" value="1"><span id="p-of">/ ${n}</span><button id="p-next" title="Next">▶</button>
+      <button id="z-out" title="Zoom out">−</button><span id="z-val" style="min-width:48px;text-align:center">100%</span><button id="z-in" title="Zoom in">+</button><button id="z-fit">${esc(t("pl.fit"))}</button>
+      <button id="p-night" title="${esc(t("pl.night"))}">🌙</button><span class="sp"></span>`;
+    const night = localStorage.getItem("gyaan_pdf_invert") === "1";
+    if (night) { scroller.classList.add("invert"); $("p-night").classList.add("on"); }
+
+    function sizeWraps() {
+      cssW = Math.max(220, (scroller.clientWidth - 24)) * zoom;
+      const h = v1.height * (cssW / v1.width);
+      wraps.forEach((w, i) => { w.style.width = cssW + "px"; if (!state[i].rendered) w.style.height = h + "px"; });
+    }
+    async function renderPage(i) {
+      const s = state[i]; if (s.rendered || s.busy) return; s.busy = true; const my = gen;
+      try {
+        const page = await pdf.getPage(i + 1), pv = page.getViewport({ scale: 1 }), cssScale = cssW / pv.width, vp = page.getViewport({ scale: cssScale });
+        let dpr = saver ? 1 : Math.min(3, Math.max(window.devicePixelRatio || 1, 1.5));       // sharp even on normal screens
+        while (vp.width * dpr * vp.height * dpr > 16e6 && dpr > 1) dpr -= 0.25;               // stay under browser canvas limits
+        const c = document.createElement("canvas");
+        c.width = Math.floor(vp.width * dpr); c.height = Math.floor(vp.height * dpr); c.style.width = vp.width + "px"; c.style.height = vp.height + "px";
+        const rt = page.render({ canvasContext: c.getContext("2d", { alpha: false }), viewport: page.getViewport({ scale: cssScale * dpr }) });
+        s.task = rt; await rt.promise;
+        if (my !== gen || s.released) return;
+        wraps[i].replaceChildren(c); wraps[i].classList.remove("loading"); wraps[i].style.height = vp.height + "px"; s.rendered = true;
+      } catch (e) { /* cancelled while scrolling */ } finally { s.busy = false; s.released = false; }
+    }
+    function release(i) { const s = state[i]; if (s.task) { try { s.task.cancel(); } catch (e) {} } if (s.busy) s.released = true; if (s.rendered) { wraps[i].replaceChildren(); wraps[i].classList.add("loading"); s.rendered = false; } }
+    const io = new IntersectionObserver(es => es.forEach(e => { const i = +e.target.dataset.i; e.isIntersecting ? renderPage(i) : release(i); }), { root: scroller, rootMargin: "1400px 0px" });
+    for (let i = 0; i < n; i++) {
+      const w = document.createElement("div"); w.className = "pdf-page loading"; w.dataset.i = i; scroller.appendChild(w); wraps.push(w); state.push({ rendered: false, busy: false });
+    }
+    sizeWraps(); wraps.forEach(w => io.observe(w));
+
+    function relayout(keep = true) {
+      const ratio = keep ? scroller.scrollTop / Math.max(1, scroller.scrollHeight) : 0;
+      gen++; state.forEach((s, i) => release(i)); sizeWraps();
+      scroller.scrollTop = ratio * scroller.scrollHeight;
+      wraps.forEach(w => { io.unobserve(w); io.observe(w); });
+      $("z-val").textContent = Math.round(zoom * 100) + "%";
+    }
+    const setZoom = z => { zoom = Math.min(4, Math.max(0.4, z)); relayout(); };
+    $("z-in").addEventListener("click", () => setZoom(zoom + 0.25)); $("z-out").addEventListener("click", () => setZoom(zoom - 0.25)); $("z-fit").addEventListener("click", () => setZoom(1));
+    const goto = p => { p = Math.min(n, Math.max(1, p)); scroller.scrollTo({ top: wraps[p - 1].offsetTop - 8 }); };
+    $("p-prev").addEventListener("click", () => goto(curPage - 1)); $("p-next").addEventListener("click", () => goto(curPage + 1));
+    $("p-num").addEventListener("change", e => goto(parseInt(e.target.value, 10) || 1));
+    $("p-night").addEventListener("click", e => { const on = scroller.classList.toggle("invert"); e.currentTarget.classList.toggle("on", on); try { localStorage.setItem("gyaan_pdf_invert", on ? "1" : "0"); } catch (err) {} });
+
+    let tick = false;
+    scroller.addEventListener("scroll", () => {
+      if (tick) return; tick = true;
+      requestAnimationFrame(() => {
+        tick = false; const y = scroller.scrollTop + scroller.clientHeight / 3; let p = 1;
+        for (let i = 0; i < n; i++) { if (wraps[i].offsetTop <= y) p = i + 1; else break; }
+        if (p !== curPage) { curPage = p; $("p-num").value = p; rec.page = p; save(false); }
+      });
+    });
+    let rz; window.addEventListener("resize", () => { clearTimeout(rz); rz = setTimeout(() => relayout(), 250); });
+    document.addEventListener("keydown", e => { if (/INPUT|SELECT|TEXTAREA/.test(document.activeElement.tagName)) return; if (e.key === "ArrowRight") goto(curPage + 1); else if (e.key === "ArrowLeft") goto(curPage - 1); });
+    scroller.addEventListener("wheel", e => { if (e.ctrlKey) { e.preventDefault(); setZoom(zoom + (e.deltaY < 0 ? 0.15 : -0.15)); } }, { passive: false });
+
+    if (saved && saved.page > 1 && saved.page <= n) { requestAnimationFrame(() => { goto(saved.page); curPage = saved.page; $("p-num").value = saved.page; }); toast(t("pl.resumed") + " " + t("pl.page").toLowerCase() + " " + saved.page, t("pl.startOver"), () => goto(1)); }
+    headerActions(info, dlUrl);
+  }
+
+  /* ---------- iframe (Drive preview, Google Docs, Vimeo, other sites) ---------- */
+  function openFrame(info, embedUrl, dlUrl, ratio) {
+    stage.innerHTML = ""; stage.className = "pl-stage " + (ratio ? "ratio" : "doc");
+    const f = document.createElement("iframe");
+    f.src = embedUrl; f.allow = "autoplay; fullscreen; picture-in-picture; encrypted-media"; f.allowFullscreen = true; f.referrerPolicy = "strict-origin-when-cross-origin"; f.loading = "eager";
+    stage.appendChild(f); headerActions(info, dlUrl);
+  }
+
+  async function googleViewerFallback(info, why) {
+    say(why);
+    openFrame(info, "https://docs.google.com/viewer?url=" + encodeURIComponent(info.url) + "&embedded=true", info.url, false);
+  }
+
+  /* ---------- start ---------- */
+  async function init() {
+    $("pl-title").textContent = title; document.title = title + " | " + ((window.__site && window.__site.name) || "Gyaan Hub");
+    $("pl-type").textContent = type || "Viewer"; if (!type) $("pl-type").style.display = "none";
+    if (!src || !isSafeUrl(src)) { $("pl-title").textContent = t("pl.noLink"); stage.style.display = "none"; return; }
+    key = keyOf(src);
+    const info = detect(src), C = window.SITE_CONFIG || {};
+    initLightbox();
+    try {
+      switch (info.kind) {
+        case "youtube": return await openYouTube(info);
+        case "vimeo": return openFrame(info, info.embed + (prefs.autoplay && !saver ? "?autoplay=1" : ""), null, true);
+        case "video": return await openVideo(info, false);
+        case "hls": return await openVideo(info, true);
+        case "audio": return openAudio(info);
+        case "image": stage.className = "pl-stage doc"; stage.innerHTML = `<img class="pl-img zoomable" alt="${esc(title)}" src="${esc(info.url)}">`; return headerActions(info, info.url);
+        case "pdf":
+          try { return await openPdf(info, info.url, info.url); }
+          catch (e) {
+            if (/^https?:\/\//i.test(src) && new URL(info.url, location.href).origin !== location.origin) return googleViewerFallback(info, "This file’s host does not allow the sharp viewer, so Google’s viewer is used instead. For the best quality, keep PDFs inside the website’s files/ folder.");
+            throw e;
+          }
+        case "drive": {
+          if (C.driveApiKey) {
+            try {
+              const meta = await (await fetch("https://www.googleapis.com/drive/v3/files/" + info.id + "?fields=mimeType&key=" + encodeURIComponent(C.driveApiKey))).json();
+              if (meta.mimeType === "application/pdf") return await openPdf(info, "https://www.googleapis.com/drive/v3/files/" + info.id + "?alt=media&key=" + encodeURIComponent(C.driveApiKey), info.download);
+            } catch (e) { /* fall back to Drive preview below */ }
+          }
+          return openFrame(info, info.embed, info.download, true);
+        }
+        case "drive-folder": return openFrame(info, info.embed, null, false);
+        default: openFrame(info, info.embed || info.url, null, false);
+          $("pl-note").textContent = "Some websites do not allow being shown inside another site. If the page stays blank, use “Open original”.";
+      }
+    } catch (e) { say("Could not open this material: " + (e && e.message ? e.message : e)); }
+  }
+
+  protectPage(u => { user = u; $("who").textContent = u.email; applyI18n(); init(); });
+  applyI18n();
+</script>
+<script type="module" src="layout.js?v=9"></script>
+</body>
+</html>

@@ -1,4 +1,6 @@
-// Gyaan Hub - shared layout: left slide-out menu + privacy/cookie consent popup
+// Gyaan Hub - shared layout: left slide-out menu + privacy/cookie consent popup + site name + preference sync
+import { getPrefs, savePrefs, mergeRemote } from "./prefs.js?v=9";
+import { t, applyI18n } from "./i18n.js?v=9";
 const KEY = "gyaan_consent";
 const page = location.pathname.split("/").pop() || "index.html";
 const onLegalPage = ["privacy.html", "terms.html"].includes(page);
@@ -12,13 +14,19 @@ const esc = s => String(s).replace(/[&<>"]/g, c => ({ "&": "&amp;", "<": "&lt;",
 
 /* ---------- Left menu (hamburger) ---------- */
 const items = [
-  ["index.html", "🏠", "Home"],
-  ["dashboard.html", "📚", "Dashboard"],
-  ["tests.html", "📝", "Tests"],
-  ["reports.html", "📊", "Reports"],
-  ["settings.html", "⚙️", "Settings"]
+  ["index.html", "🏠", "nav.home"],
+  ["dashboard.html", "📚", "nav.dashboard"],
+  ["tests.html", "📝", "nav.tests"],
+  ["reports.html", "📊", "nav.reports"],
+  ["settings.html", "⚙️", "nav.settings"]
 ];
-const legal = [["privacy.html", "Privacy Policy"], ["terms.html", "Terms of Use"]];
+const legal = [["privacy.html", "nav.privacy"], ["terms.html", "nav.terms"]];
+const avatarKey = uid => "gyaan_avatar_" + uid;
+const initials = u => ((u.displayName || u.email || "?").trim()[0] || "?").toUpperCase();
+function avatarHtml(u, cls = "") {
+  let a = ""; try { a = localStorage.getItem(avatarKey(u.uid)) || ""; } catch (e) {}
+  return a ? `<img class="avatar ${cls}" src="${a}" alt="">` : `<span class="avatar ${cls}">${esc(initials(u))}</span>`;
+}
 
 function buildMenu() {
   const btn = document.createElement("button");
@@ -49,10 +57,10 @@ function buildMenu() {
       <button class="drawer-close" aria-label="Close menu">✕</button>
     </div>
     <nav class="drawer-nav">
-      ${items.map(([h, i, t]) => `<a href="${h}" class="${h === page ? "active" : ""}"><span>${i}</span>${t}</a>`).join("")}
+      ${items.map(([h, i, k]) => `<a href="${h}" class="${h === page ? "active" : ""}"><span>${i}</span><em data-i18n="${k}">${t(k)}</em></a>`).join("")}
       <div class="drawer-sep"></div>
-      ${legal.map(([h, t]) => `<a href="${h}" class="small ${h === page ? "active" : ""}">${t}</a>`).join("")}
-      <a href="#" class="small" id="drawer-cookies">Cookie preferences</a>
+      ${legal.map(([h, k]) => `<a href="${h}" class="small ${h === page ? "active" : ""}" data-i18n="${k}">${t(k)}</a>`).join("")}
+      <a href="#" class="small" id="drawer-cookies" data-i18n="nav.cookies">${t("nav.cookies")}</a>
     </nav>
     <div class="drawer-auth" id="drawer-auth"></div>`;
   document.body.append(overlay, drawer);
@@ -66,14 +74,28 @@ function buildMenu() {
   drawer.querySelector("#drawer-cookies").addEventListener("click", e => { e.preventDefault(); close(); showConsent(true); });
 
   const box = drawer.querySelector("#drawer-auth");
-  const signedOut = () => { box.innerHTML = `<a href="login.html" class="btn btn-ghost btn-block">Sign In</a><a href="signup.html" class="btn btn-gold btn-block">Sign Up</a>`; };
-  import("./auth.js?v=7").then(a => a.onUser(u => {
-    if (!u) return signedOut();
-    box.innerHTML = `<div class="who">Signed in as<br><b>${esc(u.email || "")}</b></div><button class="btn btn-ghost btn-block" id="drawer-logout">Logout</button>`;
+  const signedOut = () => { box.innerHTML = `<a href="login.html" class="btn btn-ghost btn-block">${t("nav.signin")}</a><a href="signup.html" class="btn btn-gold btn-block">${t("nav.signup")}</a>`; };
+  const paintUser = (u, a) => {
+    box.innerHTML = `<div class="who-row">${avatarHtml(u)}<div class="who">${t("nav.signedAs")}<br><b>${esc(u.displayName || u.email || "")}</b><small>${esc(u.displayName ? (u.email || "") : "")}</small></div></div><button class="btn btn-ghost btn-block" id="drawer-logout">${t("nav.logout")}</button>`;
     box.querySelector("#drawer-logout").addEventListener("click", a.logout);
+  };
+  import("./auth.js?v=9").then(a => a.onUser(u => {
+    if (!u) return signedOut();
+    paintUser(u, a);
+    window.addEventListener("avatar-changed", () => paintUser(u, a));
+    // sync preferences + profile photo with the account (so every device looks the same)
+    if (!a.isDemo()) {
+      a.getUserDoc(u.uid).then(d => {
+        if (!d) return;
+        if (d.prefs) mergeRemote(d.prefs);
+        try { if (d.avatar) localStorage.setItem(avatarKey(u.uid), d.avatar); else localStorage.removeItem(avatarKey(u.uid)); } catch (e) {}
+        paintUser(u, a);
+      });
+      let tm; window.addEventListener("prefs-saved", e => { clearTimeout(tm); tm = setTimeout(() => a.savePrefsUp(e.detail).catch(() => {}), 800); });
+    }
     a.checkAdmin(u).then(ok => {
       const s = drawer.querySelector('a[href="settings.html"]');
-      if (ok && s) s.insertAdjacentHTML("afterend", `<a href="admin.html" class="${page === "admin.html" ? "active" : ""}"><span>🛠️</span>Admin</a>`);
+      if (ok && s && !drawer.querySelector('a[href="admin.html"]')) s.insertAdjacentHTML("afterend", `<a href="admin.html" class="${page === "admin.html" ? "active" : ""}"><span>🛠️</span><em data-i18n="nav.admin">${t("nav.admin")}</em></a>`);
     });
   })).catch(signedOut);
 }
@@ -132,6 +154,20 @@ window.openConsent = () => showConsent(true);
 window.resetConsent = () => { try { localStorage.removeItem(KEY); } catch (e) {} showConsent(false); };
 
 buildMenu();
+applyI18n();
+window.addEventListener("prefs-changed", () => {
+  const d = document.querySelector(".drawer");
+  if (d) d.querySelectorAll("[data-i18n]").forEach(el => { el.textContent = t(el.dataset.i18n); });
+});
+// site name / logo / contact: cached copy is applied by theme.js at once, the fresh copy is fetched here
+import("./auth.js?v=9").then(async a => {
+  const site = await a.loadSite();
+  if (!site) return;
+  const fresh = { name: site.name || "", logo: site.logo || "", contact: site.contact || "" };
+  let old = null; try { old = localStorage.getItem("gyaan_site"); } catch (e) {}
+  try { localStorage.setItem("gyaan_site", JSON.stringify(fresh)); } catch (e) {}
+  if (JSON.stringify(fresh) !== old && window.__siteApply) window.__siteApply(fresh);
+}).catch(() => {});
 const toc = document.getElementById("toc");
 if (toc) document.querySelectorAll(".doc-body h2").forEach((h, i) => {
   h.id = "s" + (i + 1);
