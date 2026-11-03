@@ -14,11 +14,14 @@ const esc = s => String(s).replace(/[&<>"]/g, c => ({ "&": "&amp;", "<": "&lt;",
 
 /* ---------- Left menu (hamburger) ---------- */
 const items = [
-  ["index.html", "🏠", "nav.home"],
-  ["dashboard.html", "📚", "nav.dashboard"],
-  ["tests.html", "📝", "nav.tests"],
-  ["reports.html", "📊", "nav.reports"],
-  ["settings.html", "⚙️", "nav.settings"]
+  ["index.html", "home", "nav.home"],
+  ["profile.html", "user", "nav.profile"],
+  ["dashboard.html", "library", "nav.dashboard"],
+  ["tests.html", "notes", "nav.tests"],
+  ["community.html", "users", "nav.community"],
+  ["messages.html", "chat", "nav.messages"],
+  ["reports.html", "chart", "nav.reports"],
+  ["settings.html", "gear", "nav.settings"]
 ];
 const legal = [["privacy.html", "nav.privacy"], ["terms.html", "nav.terms"]];
 const avatarKey = uid => "gyaan_avatar_" + uid;
@@ -57,7 +60,7 @@ function buildMenu() {
       <button class="drawer-close" aria-label="Close menu">✕</button>
     </div>
     <nav class="drawer-nav">
-      ${items.map(([h, i, k]) => `<a href="${h}" class="${h === page ? "active" : ""}"><span>${i}</span><em data-i18n="${k}">${t(k)}</em></a>`).join("")}
+      ${items.map(([h, i, k]) => `<a href="${h}" class="${h === page ? "active" : ""}"><span>${window.ic ? window.ic(i) : ""}</span><em data-i18n="${k}">${t(k)}</em></a>`).join("")}
       <div class="drawer-sep"></div>
       ${legal.map(([h, k]) => `<a href="${h}" class="small ${h === page ? "active" : ""}" data-i18n="${k}">${t(k)}</a>`).join("")}
       <a href="#" class="small" id="drawer-cookies" data-i18n="nav.cookies">${t("nav.cookies")}</a>
@@ -93,9 +96,14 @@ function buildMenu() {
       });
       let tm; window.addEventListener("prefs-saved", e => { clearTimeout(tm); tm = setTimeout(() => a.savePrefsUp(e.detail).catch(() => {}), 800); });
     }
+    if (!a.isDemo()) import("./community.js?v=9").then(async c => {
+      const [unread, reqs] = await Promise.all([c.unreadCount(u.uid), a.fsWhere("follows", [["target", "==", u.uid], ["status", "==", "pending"]]).then(r => r.length).catch(() => 0)]);
+      const badge = (href, n) => { const el = n && drawer.querySelector(`.drawer-nav a[href="${href}"]`); if (el && !el.querySelector(".nav-badge")) el.insertAdjacentHTML("beforeend", `<i class="nav-badge">${n > 9 ? "9+" : n}</i>`); };
+      badge("messages.html", unread); badge("profile.html", reqs);
+    }).catch(() => {});
     a.checkAdmin(u).then(ok => {
       const s = drawer.querySelector('a[href="settings.html"]');
-      if (ok && s && !drawer.querySelector('a[href="admin.html"]')) s.insertAdjacentHTML("afterend", `<a href="admin.html" class="${page === "admin.html" ? "active" : ""}"><span>🛠️</span><em data-i18n="nav.admin">${t("nav.admin")}</em></a>`);
+      if (ok && s && !drawer.querySelector('a[href="admin.html"]')) s.insertAdjacentHTML("afterend", `<a href="admin.html" class="${page === "admin.html" ? "active" : ""}"><span>${window.ic("tools")}</span><em data-i18n="nav.admin">${t("nav.admin")}</em></a><a href="moderation.html" class="${page === "moderation.html" ? "active" : ""}"><span>${window.ic("flag")}</span><em>Community reports</em></a>`);
     });
   })).catch(signedOut);
 }

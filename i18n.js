@@ -3,7 +3,7 @@ import { getPrefs } from "./prefs.js?v=9";
 
 const D = {
   en: {
-    "nav.home": "Home", "nav.dashboard": "Dashboard", "nav.tests": "Tests", "nav.reports": "Reports", "nav.settings": "Settings", "nav.admin": "Admin",
+    "nav.home": "Home", "nav.dashboard": "Dashboard", "nav.tests": "Tests", "nav.community": "Community", "nav.profile": "Profile", "nav.messages": "Messages", "nav.reports": "Reports", "nav.settings": "Settings", "nav.admin": "Admin",
     "nav.privacy": "Privacy Policy", "nav.terms": "Terms of Use", "nav.cookies": "Cookie preferences",
     "nav.signin": "Sign In", "nav.signup": "Sign Up", "nav.logout": "Logout", "nav.signedAs": "Signed in as",
 
@@ -51,7 +51,7 @@ const D = {
     "common.back": "Back"
   },
   hi: {
-    "nav.home": "होम", "nav.dashboard": "डैशबोर्ड", "nav.tests": "टेस्ट", "nav.reports": "रिपोर्ट", "nav.settings": "सेटिंग्स", "nav.admin": "एडमिन",
+    "nav.home": "होम", "nav.dashboard": "डैशबोर्ड", "nav.tests": "टेस्ट", "nav.community": "कम्युनिटी", "nav.profile": "प्रोफ़ाइल", "nav.messages": "संदेश", "nav.reports": "रिपोर्ट", "nav.settings": "सेटिंग्स", "nav.admin": "एडमिन",
     "nav.privacy": "प्राइवेसी पॉलिसी", "nav.terms": "उपयोग की शर्तें", "nav.cookies": "कुकी प्राथमिकताएँ",
     "nav.signin": "साइन इन", "nav.signup": "साइन अप", "nav.logout": "लॉगआउट", "nav.signedAs": "साइन इन:",
 

@@ -5,7 +5,14 @@ import { squareAvatar } from "./media.js?v=9";
 
 export { A, squareAvatar };
 export const esc = s => String(s ?? "").replace(/[&<>"']/g, c => ({ "&": "&amp;", "<": "&lt;", ">": "&gt;", '"': "&quot;", "'": "&#39;" }[c]));
-export const PRESETS = ["🦊", "🐼", "🦁", "🐯", "🐨", "🐸", "🦉", "🐧", "🚀", "⭐", "🎯", "🧠"];
+// Vector avatars (id -> icon + gradient). Stored in the profile as "preset:<id>".
+export const AVATARS = {
+  rocket: ["rocket", "#6d7cff", "#a06bff"], star: ["star", "#f6b93b", "#e55039"], brain: ["brain", "#ff7eb3", "#a06bff"],
+  atom: ["atom", "#17c3b2", "#227c9d"], flask: ["flask", "#38ef7d", "#11998e"], book: ["book", "#4facfe", "#00c6fb"],
+  trophy: ["trophy", "#f6d365", "#fda085"], flame: ["flame", "#ff9966", "#ff5e62"], bolt: ["bolt", "#fbd72b", "#f9484a"],
+  target: ["target", "#ee0979", "#ff6a00"], laptop: ["laptop", "#654ea3", "#eaafc8"], cap: ["cap", "#0f9b8e", "#6d7cff"]
+};
+export const PRESETS = Object.keys(AVATARS);
 export const COURSES = ["Class 6", "Class 7", "Class 8", "Class 9", "Class 10", "Class 11", "Class 12", "NEET", "JEE", "UPSC", "Other"];
 const SAFE_IMG = /^data:image\/(jpeg|png|webp);base64,[A-Za-z0-9+/=]+$/;
 
@@ -13,7 +20,11 @@ const SAFE_IMG = /^data:image\/(jpeg|png|webp);base64,[A-Za-z0-9+/=]+$/;
 export function avatarHtml(p, cls = "") {
   const a = (p && p.avatar) || "";
   if (SAFE_IMG.test(a)) return `<img class="avatar ${cls}" src="${a}" alt="">`;
-  if (a.startsWith("preset:")) return `<span class="avatar emoji ${cls}">${esc(a.slice(7))}</span>`;
+  if (a.startsWith("preset:")) {
+    const v = AVATARS[a.slice(7)];
+    if (v) return `<span class="avatar vec ${cls}" style="background:linear-gradient(135deg,${v[1]},${v[2]})">${window.ic ? window.ic(v[0]) : ""}</span>`;
+    return `<span class="avatar emoji ${cls}">${esc(a.slice(7))}</span>`;
+  }
   const n = ((p && p.name) || "?").trim();
   return `<span class="avatar ${cls}">${esc((n[0] || "?").toUpperCase())}</span>`;
 }
@@ -38,6 +49,64 @@ function shrink(dataUrl, size = 120) {
 }
 export async function photoFromFile(file) { return shrink(await squareAvatar(file, 256), 120); }
 
+
+/* ---------- hash function: Student ID ----------
+   SHA-256 of the account id -> first 40 bits -> 8 characters (Crockford base32), shown as XXXX-XXXX.
+   Nobody can guess another student's ID from their name, and the ID cannot be faked: a profile found by ID is
+   accepted only if sha256(its owner id) gives the same code (checked in findByCode). */
+export function sha256(msg) {
+  const K = [0x428a2f98, 0x71374491, 0xb5c0fbcf, 0xe9b5dba5, 0x3956c25b, 0x59f111f1, 0x923f82a4, 0xab1c5ed5, 0xd807aa98, 0x12835b01, 0x243185be, 0x550c7dc3, 0x72be5d74, 0x80deb1fe, 0x9bdc06a7, 0xc19bf174,
+    0xe49b69c1, 0xefbe4786, 0x0fc19dc6, 0x240ca1cc, 0x2de92c6f, 0x4a7484aa, 0x5cb0a9dc, 0x76f988da, 0x983e5152, 0xa831c66d, 0xb00327c8, 0xbf597fc7, 0xc6e00bf3, 0xd5a79147, 0x06ca6351, 0x14292967,
+    0x27b70a85, 0x2e1b2138, 0x4d2c6dfc, 0x53380d13, 0x650a7354, 0x766a0abb, 0x81c2c92e, 0x92722c85, 0xa2bfe8a1, 0xa81a664b, 0xc24b8b70, 0xc76c51a3, 0xd192e819, 0xd6990624, 0xf40e3585, 0x106aa070,
+    0x19a4c116, 0x1e376c08, 0x2748774c, 0x34b0bcb5, 0x391c0cb3, 0x4ed8aa4a, 0x5b9cca4f, 0x682e6ff3, 0x748f82ee, 0x78a5636f, 0x84c87814, 0x8cc70208, 0x90befffa, 0xa4506ceb, 0xbef9a3f7, 0xc67178f2];
+  const bytes = Array.from(new TextEncoder().encode(msg)), len = bytes.length;
+  bytes.push(0x80);
+  while (bytes.length % 64 !== 56) bytes.push(0);
+  const bits = len * 8;
+  for (let i = 7; i >= 0; i--) bytes.push(i > 3 ? 0 : (bits >>> (i * 8)) & 0xff);
+  const H = [0x6a09e667, 0xbb67ae85, 0x3c6ef372, 0xa54ff53a, 0x510e527f, 0x9b05688c, 0x1f83d9ab, 0x5be0cd19];
+  const rr = (x, n) => (x >>> n) | (x << (32 - n));
+  for (let o = 0; o < bytes.length; o += 64) {
+    const w = new Array(64);
+    for (let i = 0; i < 16; i++) w[i] = (bytes[o + i * 4] << 24) | (bytes[o + i * 4 + 1] << 16) | (bytes[o + i * 4 + 2] << 8) | bytes[o + i * 4 + 3];
+    for (let i = 16; i < 64; i++) {
+      const s0 = rr(w[i - 15], 7) ^ rr(w[i - 15], 18) ^ (w[i - 15] >>> 3), s1 = rr(w[i - 2], 17) ^ rr(w[i - 2], 19) ^ (w[i - 2] >>> 10);
+      w[i] = (w[i - 16] + s0 + w[i - 7] + s1) | 0;
+    }
+    let [a, b, c, d, e, f, g, h] = H;
+    for (let i = 0; i < 64; i++) {
+      const S1 = rr(e, 6) ^ rr(e, 11) ^ rr(e, 25), ch = (e & f) ^ (~e & g), t1 = (h + S1 + ch + K[i] + w[i]) | 0;
+      const S0 = rr(a, 2) ^ rr(a, 13) ^ rr(a, 22), mj = (a & b) ^ (a & c) ^ (b & c), t2 = (S0 + mj) | 0;
+      h = g; g = f; f = e; e = (d + t1) | 0; d = c; c = b; b = a; a = (t1 + t2) | 0;
+    }
+    [a, b, c, d, e, f, g, h].forEach((v, i) => { H[i] = (H[i] + v) | 0; });
+  }
+  return H.map(v => (v >>> 0).toString(16).padStart(8, "0")).join("");
+}
+const B32 = "0123456789ABCDEFGHJKMNPQRSTVWXYZ";
+export function studentCode(uid) {
+  const hex = sha256("gyaan-hub:" + uid);
+  let n = 0n;
+  for (let i = 0; i < 10; i += 2) n = (n << 8n) | BigInt(parseInt(hex.slice(i, i + 2), 16));   // first 5 bytes = 40 bits
+  let out = "";
+  for (let i = 0; i < 8; i++) { out = B32[Number(n & 31n)] + out; n >>= 5n; }
+  return out;
+}
+export const fmtCode = c => (c || "").slice(0, 4) + "-" + (c || "").slice(4);
+export function normCode(q) {
+  let c = String(q || "").toUpperCase().replace(/[^0-9A-Z]/g, "").replace(/O/g, "0").replace(/[IL]/g, "1");
+  if (c.length === 10 && c.startsWith("GH")) c = c.slice(2);
+  return c;
+}
+export const looksLikeCode = q => /^[0-9A-Za-z]{4}[-\s]?[0-9A-Za-z]{4}$/.test(String(q).trim().replace(/^gh[-\s]?/i, ""));
+export const profileLink = code => new URL("profile.html?c=" + code, location.href).href;
+export async function findByCode(q) {
+  const code = normCode(q);
+  if (code.length !== 8) return [];
+  const rows = await A.fsWhere("profiles", [["code", "==", code]]);
+  return rows.filter(r => studentCode(r.id) === code);    // reject anyone claiming a code that is not theirs
+}
+
 /* ---------- profiles ---------- */
 // profiles/{uid}      : PUBLIC card (name, avatar, isPrivate, hideRank, dm)
 // profileStats/{uid}  : bio, course, tests, points, streak ... (hidden from strangers when the profile is private)
@@ -53,12 +122,15 @@ export async function getStats(uid) { try { return await A.fsGetPath(["profileSt
 export async function ensureMyProfile(user) {
   let p = null;
   try { p = await getProfile(user.uid, true); } catch (e) { throw e; }
-  if (p) return { profile: p, created: false };
+  if (p) {
+    if (p.code !== studentCode(user.uid)) { p.code = studentCode(user.uid); try { await A.fsSetPath(["profiles", user.uid], { code: p.code }); } catch (e) {} }   // older profiles get an ID
+    return { profile: p, created: false };
+  }
   const ud = (await A.getUserDoc(user.uid)) || {};
   const name = String(user.displayName || ud.name || (user.email || "student").split("@")[0]).trim().slice(0, 40) || "Student";
   let avatar = "";
   if (ud.avatar && SAFE_IMG.test(ud.avatar)) avatar = await shrink(ud.avatar, 120);   // reuse the photo from Settings
-  const prof = { name, nameLc: name.toLowerCase(), avatar, isPrivate: false, hideRank: false, dm: "followers" };
+  const prof = { name, nameLc: name.toLowerCase(), avatar, isPrivate: false, hideRank: false, dm: "followers", code: studentCode(user.uid) };
   await A.fsSetPath(["profiles", user.uid], prof, false);
   PC[user.uid] = { id: user.uid, ...prof };
   await syncMyStats(user, PC[user.uid], { bio: "", course: "" });
@@ -93,7 +165,7 @@ export async function syncMyStats(user, prof, extra = {}) {
 
 export async function saveMyProfile(user, d) {
   const prev = await getProfile(user.uid, true);
-  const prof = { name: d.name, nameLc: d.name.toLowerCase(), avatar: d.avatar || "", isPrivate: !!d.isPrivate, hideRank: !!d.hideRank, dm: d.dm || "followers" };
+  const prof = { name: d.name, nameLc: d.name.toLowerCase(), avatar: d.avatar || "", isPrivate: !!d.isPrivate, hideRank: !!d.hideRank, dm: d.dm || "followers", code: studentCode(user.uid) };
   await A.fsSetPath(["profiles", user.uid], prof);
   PC[user.uid] = { id: user.uid, ...prof };
   try { await A.setDisplayName(d.name); await A.saveUserDoc({ name: d.name }); localStorage.setItem("gyaan_name_" + user.uid, d.name); } catch (e) {}
@@ -107,10 +179,21 @@ async function syncFollowPrivacy(uid, priv) {
     for (const f of await A.fsQuery("follows", "target", uid)) if (f.targetPrivate !== priv) await A.fsSetPath(["follows", f.id], { targetPrivate: priv });
   } catch (e) {}
 }
+// Search by name (public profiles only) or by exact Student ID (finds private profiles too, so a request can be sent).
 export async function searchStudents(q) {
-  q = q.trim().toLowerCase();
+  q = String(q || "").trim();
   if (q.length < 2) return [];
-  return A.fsWhere("profiles", [["nameLc", ">=", q], ["nameLc", "<=", q + "\uf8ff"]]);
+  const out = new Map();
+  const tasks = [];
+  if (looksLikeCode(q)) tasks.push(findByCode(q).then(r => r.forEach(p => out.set(p.id, { ...p, byId: true }))).catch(() => {}));
+  const lc = q.toLowerCase();
+  tasks.push(A.fsWhere("profiles", [["nameLc", ">=", lc], ["nameLc", "<=", lc + "\uf8ff"]]).then(r => r.filter(p => !p.isPrivate).forEach(p => { if (!out.has(p.id)) out.set(p.id, p); })));
+  await Promise.all(tasks);
+  return [...out.values()];
+}
+export async function recentTests(uid, n = 12) {
+  const rows = await A.fsQuery("results", "uid", uid);
+  return rows.sort((a, b) => A.toMs(b.createdAt) - A.toMs(a.createdAt)).slice(0, n);
 }
 
 /* ---------- rank / leaderboard ---------- */

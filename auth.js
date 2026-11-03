@@ -481,6 +481,8 @@ export async function deleteAccount(password) {
   const wipe = async name => { try { for (const r of await fsQuery(name, "uid", uid)) await fsDelete(name, r.id); } catch (e) {} };
   await wipe("results"); await wipe("scores");
   for (const sub of ["devices", "progress"]) { try { for (const d of await fsListPath(["users", uid, sub])) await fsDeletePath(["users", uid, sub, d.id]); } catch (e) {} }
+  for (const col of ["profiles", "profileStats"]) { try { await fsDeletePath([col, uid]); } catch (e) {} }   // community data
+  for (const f of ["follower", "target"]) { try { for (const r of await fsQuery("follows", f, uid)) await fsDelete("follows", r.id); } catch (e) {} }
   try { await fsDeletePath(["users", uid]); } catch (e) {}
   await deleteUser(u);
   try { Object.keys(localStorage).filter(k => k.includes(uid) || k.startsWith("gyaan_cache_") || k === "gyaan_prefs").forEach(k => localStorage.removeItem(k)); } catch (e) {}
@@ -526,3 +528,16 @@ export async function loadSite() {
   try { const d = await fsGetPath(["settings", "site"]); return d || null; } catch (e) { return null; }
 }
 export async function saveSite(data) { await fsSetPath(["settings", "site"], data); }
+
+// ---- community helpers (profiles, follows, chats) ----
+// Query with several conditions: conds = [[field, op, value], ...]
+export async function fsWhere(name, conds) {
+  if (DEMO) return [];
+  const snap = await run(d => getDocs(query(collection(d, name), ...conds.map(c => where(c[0], c[1], c[2])))));
+  return snap.docs.map(x => ({ id: x.id, ...x.data() }));
+}
+// Live listener on a collection path (used by the chat). Returns an unsubscribe function.
+export function fsWatchCol(path, cb, onErr) {
+  if (DEMO) return () => {};
+  return onSnapshot(collection(getDb(), ...path), s => cb(s.docs.map(x => ({ id: x.id, ...x.data() }))), e => { if (onErr) onErr(e); });
+}

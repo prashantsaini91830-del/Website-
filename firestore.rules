@@ -1,0 +1,152 @@
+rules_version = '2';
+service cloud.firestore {
+  match /databases/{database}/documents {
+    function signedIn() {
+      return request.auth != null;
+    }
+    function isAdmin() {
+      return signedIn() && exists(/databases/$(database)/documents/admins/$(request.auth.uid));
+    }
+    function isOwner(uid) {
+      return signedIn() && request.auth.uid == uid;
+    }
+    // ---- community helpers ----
+    function docs() { return /databases/$(database)/documents; }
+    function profilePath(u) { return /databases/$(database)/documents/profiles/$(u); }
+    function isPrivateProfile(u) { return exists(profilePath(u)) && get(profilePath(u)).data.get("isPrivate", false) == true; }
+    function followPath(a, b) { return /databases/$(database)/documents/follows/$(a + "_" + b); }
+    function isAccFollower(u) {              // the signed-in user follows u and u has accepted
+      return exists(followPath(request.auth.uid, u)) && get(followPath(request.auth.uid, u)).data.status == "accepted";
+    }
+    function doesFollow(a, b) {              // a follows b (accepted)
+      return exists(followPath(a, b)) && get(followPath(a, b)).data.status == "accepted";
+    }
+    function blockedEither(p) {
+      return exists(/databases/$(database)/documents/blocks/$(p[0] + "_" + p[1]))
+          || exists(/databases/$(database)/documents/blocks/$(p[1] + "_" + p[0]));
+    }
+    match /materials/{id} {
+      allow read: if signedIn();
+      allow write: if isAdmin();
+    }
+    match /tests/{id} {
+      allow read: if signedIn();
+      allow write: if isAdmin();
+    }
+    match /images/{id} {                    // question images
+      allow read: if signedIn();
+      allow write: if isAdmin();
+    }
+    match /settings/{id} {                  // site name / logo / contact (readable before login)
+      allow read: if true;
+      allow write: if isAdmin();
+    }
+    match /results/{id} {
+      allow create: if signedIn() && request.resource.data.uid == request.auth.uid;
+      allow read: if isAdmin() || (signedIn() && resource.data.uid == request.auth.uid);
+      allow update: if isAdmin();
+      allow delete: if isAdmin() || (signedIn() && resource.data.uid == request.auth.uid);
+    }
+    match /scores/{id} {
+      allow read: if signedIn();
+      allow create, update: if signedIn()
+        && request.resource.data.uid == request.auth.uid
+        && id == request.resource.data.testId + "_" + request.auth.uid;
+      allow delete: if isAdmin() || (signedIn() && resource.data.uid == request.auth.uid);
+    }
+    match /admins/{id} {
+      allow read: if signedIn() && request.auth.uid == id;
+      allow write: if false;
+    }
+    match /users/{uid} {                    // profile photo, preferences, devices, learning progress
+      allow read, write: if isOwner(uid);
+      match /{sub=**} {
+        allow read, write: if isOwner(uid);
+      }
+    }
+    // ================= Student Community =================
+    match /profiles/{uid} {                 // public card: name, avatar, privacy flags
+      allow read: if signedIn();
+      allow create, update: if (isOwner(uid)
+          && request.resource.data.keys().hasOnly(["name", "nameLc", "avatar", "isPrivate", "hideRank", "dm", "code", "updatedAt"])
+          && request.resource.data.name is string && request.resource.data.name.size() > 0 && request.resource.data.name.size() <= 40
+          && request.resource.data.avatar.size() < 40000
+          && request.resource.data.get("code", "").size() <= 8
+          && request.resource.data.dm in ["all", "followers", "none"])
+        || isAdmin();
+      allow delete: if isOwner(uid) || isAdmin();
+    }
+    match /profileStats/{uid} {             // bio, course, rank numbers: hidden from strangers when the profile is private
+      allow read: if signedIn() && (resource == null || isOwner(uid) || resource.data.shown == true || isAccFollower(uid));
+      allow create, update: if (isOwner(uid) && request.resource.data.uid == uid
+          && (!("bio" in request.resource.data) || request.resource.data.bio.size() <= 160))
+        || isAdmin();
+      allow delete: if isOwner(uid) || isAdmin();
+    }
+    match /follows/{id} {                   // id = followerUid_targetUid
+      allow read: if signedIn() && (resource == null
+          || request.auth.uid == resource.data.follower || request.auth.uid == resource.data.target
+          || (resource.data.status == "accepted" && (
+                (resource.data.targetPrivate == false && resource.data.followerPrivate == false)
+                || isAccFollower(resource.data.target)
+                || (resource.data.targetPrivate == false && isAccFollower(resource.data.follower)))));
+      allow create: if signedIn()
+          && request.resource.data.follower == request.auth.uid
+          && request.resource.data.target is string && request.resource.data.target != request.auth.uid
+          && id == request.auth.uid + "_" + request.resource.data.target
+          && !exists(/databases/$(database)/documents/blocks/$(request.resource.data.target + "_" + request.auth.uid))
+          && request.resource.data.targetPrivate == isPrivateProfile(request.resource.data.target)
+          && request.resource.data.followerPrivate == isPrivateProfile(request.auth.uid)
+          && ((isPrivateProfile(request.resource.data.target) && request.resource.data.status == "pending")
+              || (!isPrivateProfile(request.resource.data.target) && request.resource.data.status == "accepted"));
+      allow update: if signedIn() && (
+          (request.auth.uid == resource.data.target
+            && request.resource.data.diff(resource.data).affectedKeys().hasOnly(["status", "targetPrivate", "updatedAt"])
+            && request.resource.data.status == "accepted")
+          || (request.auth.uid == resource.data.follower
+            && request.resource.data.diff(resource.data).affectedKeys().hasOnly(["followerPrivate", "updatedAt"])));
+      allow delete: if signedIn() && (request.auth.uid == resource.data.follower || request.auth.uid == resource.data.target);
+    }
+    match /blocks/{id} {                    // id = blockerUid_blockedUid (the blocked person cannot read it)
+      allow read, delete: if signedIn() && (resource == null || resource.data.blocker == request.auth.uid);
+      allow create: if signedIn() && request.resource.data.blocker == request.auth.uid
+          && id == request.auth.uid + "_" + request.resource.data.blocked;
+    }
+    match /chats/{cid} {                    // cid = smallerUid_largerUid
+      allow read: if signedIn() && (resource == null || request.auth.uid in resource.data.participants);
+      allow create: if signedIn()
+          && request.resource.data.participants.size() == 2
+          && request.auth.uid in request.resource.data.participants
+          && request.resource.data.participants[0] < request.resource.data.participants[1]
+          && cid == request.resource.data.participants[0] + "_" + request.resource.data.participants[1]
+          && !blockedEither(request.resource.data.participants);
+      allow update: if signedIn() && request.auth.uid in resource.data.participants
+          && request.resource.data.participants == resource.data.participants
+          && !blockedEither(resource.data.participants);
+      allow delete: if false;
+      match /messages/{mid} {
+        function chat() { return get(/databases/$(database)/documents/chats/$(cid)).data; }
+        function dmAllowed(to, from) {
+          return !exists(profilePath(to))
+              || get(profilePath(to)).data.get("dm", "followers") == "all"
+              || (get(profilePath(to)).data.get("dm", "followers") == "followers" && doesFollow(to, from));
+        }
+        allow read: if signedIn() && request.auth.uid in chat().participants;
+        allow create: if signedIn()
+            && request.resource.data.from == request.auth.uid
+            && request.resource.data.to in chat().participants && request.resource.data.to != request.auth.uid
+            && request.resource.data.text is string && request.resource.data.text.size() > 0 && request.resource.data.text.size() <= 1000
+            && !blockedEither(chat().participants)
+            && dmAllowed(request.resource.data.to, request.auth.uid);
+        allow delete: if signedIn() && resource.data.from == request.auth.uid;
+      }
+    }
+    match /communityReports/{id} {          // reports: anyone can send, only admins can read
+      allow create: if signedIn() && request.resource.data.reporter == request.auth.uid;
+      allow read, update, delete: if isAdmin();
+    }
+    match /{path=**}/devices/{id} {         // admin "Logins" tab
+      allow read: if isAdmin();
+    }
+  }
+}
