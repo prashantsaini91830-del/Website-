@@ -7,6 +7,7 @@
 <link rel="stylesheet" href="style.css?v=9">
 <script src="site-config.js?v=9"></script>
 <script src="theme.js?v=9"></script>
+<script src="icons.js?v=9"></script>
 </head>
 <body>
 <header class="nav">
@@ -28,10 +29,13 @@
   import * as C from "./community.js?v=9";
   const $ = id => document.getElementById(id);
   const { esc } = C;
+  const ic = (n, c) => window.ic ? window.ic(n, c) : "";
   const params = new URLSearchParams(location.search);
-  let me, myProf, prof, uid, isMe, rel, blocked, stats, rank, fers, fing, msgOk;
+  let me, myProf, prof, uid, isMe, rel, theirRel, blocked, stats, rank, fers, fing, msgOk, tests = [];
+  let myFollowing = new Map(), myFollowers = new Map(), tab = params.get("tab") || "overview", lbRows = null;
+  const people = {};
 
-  /* ---------- tiny modal helper ---------- */
+  /* ---------- helpers ---------- */
   function modal(html) {
     const m = document.createElement("div");
     m.className = "cm-modal";
@@ -44,12 +48,46 @@
     return { el: m, close };
   }
   const say = (el, text, type = "") => { el.className = "cm-msg " + type; el.textContent = text; };
+  async function copy(text, okMsg) {
+    try { await navigator.clipboard.writeText(text); C.toast(okMsg, 2200); }
+    catch (e) { window.prompt("Copy this:", text); }
+  }
+  const dateTxt = ms => new Date(ms).toLocaleDateString([], { day: "numeric", month: "short" });
+  const quickMsg = p => (p.dm || "followers") === "all" || ((p.dm || "followers") === "followers" && (myFollowers.get(p.id) || {}).status === "accepted");
 
-  /* ---------- load everything for the profile being viewed ---------- */
+  /* ---------- people row (used by search, suggestions, followers, following) ---------- */
+  function personRow(p, note = "") {
+    people[p.id] = p;
+    const enc = encodeURIComponent(p.id), you = p.id === me.uid;
+    const st = (myFollowing.get(p.id) || {}).status, followsMe = (myFollowers.get(p.id) || {}).status === "accepted";
+    let btns = "";
+    if (!you) {
+      btns = !st ? `<button class="btn btn-gold" data-act="pfollow" data-id="${esc(p.id)}">${p.isPrivate ? "Request" : (followsMe ? "Follow back" : "Follow")}</button>`
+        : `<button class="btn btn-ghost" data-act="punfollow" data-id="${esc(p.id)}">${st === "pending" ? "Requested" : "Following"}</button>`;
+      if (quickMsg(p)) btns += `<a class="btn btn-ghost" href="messages.html?to=${enc}">${ic("chat")} Message</a>`;
+    }
+    return `<div class="cm-row"><a href="profile.html?u=${enc}">${C.avatarHtml(p, "sm")}</a>
+      <div class="grow"><a href="profile.html?u=${enc}"><b>${esc(p.name)}</b></a><small>${p.isPrivate ? ic("lock") + " Private · " : ""}${followsMe && !you ? "Follows you · " : ""}${note}</small></div>${btns}</div>`;
+  }
+  async function peopleList(el, rows, key, empty) {
+    if (!rows) { el.innerHTML = `<div class="empty">This list is not available.</div>`; return; }
+    if (!rows.length) { el.innerHTML = `<div class="empty">${empty}</div>`; return; }
+    el.innerHTML = `<div class="skel"></div>`;
+    const ps = await C.profilesOf(rows.map(r => r[key]));
+    el.innerHTML = ps.map(p => personRow(p)).join("");
+  }
+
+  /* ---------- load ---------- */
+  async function loadRelations() {
+    const [a, b] = await Promise.all([C.A.fsWhere("follows", [["follower", "==", me.uid]]).catch(() => []), C.A.fsWhere("follows", [["target", "==", me.uid]]).catch(() => [])]);
+    myFollowing = new Map(a.map(f => [f.target, f])); myFollowers = new Map(b.map(f => [f.follower, f]));
+  }
   async function load() {
+    await loadRelations();
     prof = await C.getProfile(uid, true);
-    if (!prof) { $("app").innerHTML = `<div class="panel cm-lock"><div class="big">🤷</div><h2>Profile not found</h2><p class="cm-sub">This student has not set up a community profile yet.</p><a class="btn btn-gold" href="community.html">Back to leaderboard</a></div>`; return; }
-    rel = isMe ? null : await C.getRelation(me.uid, uid);
+    if (!prof) { $("app").innerHTML = `<div class="panel cm-lock"><div class="big">${ic("help")}</div><h2>Profile not found</h2><p class="cm-sub">This student has no community profile${params.get("c") ? ", or the Student ID is wrong" : " yet"}.</p><a class="btn btn-gold" href="profile.html?tab=find">Find students</a></div>`; return; }
+    rel = isMe ? null : (myFollowing.get(uid) || null);
+    theirRel = isMe ? null : (myFollowers.get(uid) || null);
     blocked = isMe ? false : await C.isBlocked(me.uid, uid);
     const accepted = !!rel && rel.status === "accepted";
     const canSee = isMe || !prof.isPrivate || accepted;
@@ -57,95 +95,162 @@
     rank = null;
     if (stats && stats.tests && (isMe || !prof.hideRank)) {
       const rows = await C.getLeaderboard().catch(() => []);
+      lbRows = rows;
       rank = C.rankFor(rows, stats);
       if (isMe) C.celebrateRank(me.uid, rank);
     }
-    fers = fing = null;
-    if (canSee) [fers, fing] = await Promise.all([C.listFollowers(uid, isMe, prof, accepted).catch(() => null), C.listFollowing(uid, isMe, prof, accepted).catch(() => null)]);
-    if (fers) fers = fers.filter(f => f.status === "accepted");
-    if (fing) fing = fing.filter(f => f.status === "accepted");
+    if (isMe) {
+      fers = [...myFollowers.values()].filter(f => f.status === "accepted");
+      fing = [...myFollowing.values()].filter(f => f.status === "accepted");
+      tests = await C.recentTests(uid, 12).catch(() => []);
+    } else {
+      fers = fing = null;
+      if (canSee) [fers, fing] = await Promise.all([C.listFollowers(uid, false, prof, accepted).catch(() => null), C.listFollowing(uid, false, prof, accepted).catch(() => null)]);
+      if (fers) fers = fers.filter(f => f.status === "accepted");
+      if (fing) fing = fing.filter(f => f.status === "accepted");
+    }
     msgOk = { ok: false };
     if (!isMe && !blocked) msgOk = await C.canMessage(me.uid, uid, prof).catch(() => ({ ok: false, why: "Messaging is not available." }));
     render(canSee);
-    if (isMe) renderRequests();
   }
 
-  /* ---------- render ---------- */
+  /* ---------- header ---------- */
   function actionsHtml() {
-    if (isMe) return `<button class="btn btn-gold" data-act="edit">✏️ Edit profile</button><a class="btn btn-ghost" href="settings.html">⚙️ Settings</a>`;
-    if (blocked) return `<span class="cm-chip">🚫 You blocked this student</span><button class="btn btn-ghost" data-act="unblock">Unblock</button>`;
-    let f = "";
-    if (!rel) f = `<button class="btn btn-gold" data-act="follow">${prof.isPrivate ? "🔒 Request to follow" : "➕ Follow"}</button>`;
-    else if (rel.status === "pending") f = `<button class="btn btn-ghost" data-act="unfollow">⏳ Requested (cancel)</button>`;
-    else f = `<button class="btn btn-ghost" data-act="unfollow">✓ Following</button>`;
-    const m = msgOk.ok ? `<a class="btn btn-ghost" href="messages.html?to=${encodeURIComponent(uid)}">💬 Message</a>` : `<button class="btn btn-ghost" disabled title="${esc(msgOk.why || "")}">💬 Message</button>`;
-    return `${f}${m}<div class="cm-menu"><button class="btn btn-ghost" data-act="menu" aria-label="More">⋯</button><div class="cm-menu-pop" id="pop"><button data-act="report">🚩 Report</button><button data-act="block">🚫 Block</button></div></div>`;
+    if (isMe) return `<button class="btn btn-gold" data-act="edit">${ic("pencil")} Edit profile</button><a class="btn btn-ghost" href="settings.html">${ic("gear")} Settings</a>`;
+    if (blocked) return `<span class="cm-chip">${ic("ban")} You blocked this student</span><button class="btn btn-ghost" data-act="unblock">Unblock</button>`;
+    let f;
+    if (!rel) f = `<button class="btn btn-gold" data-act="follow">${ic(prof.isPrivate ? "lock" : "user-plus")} ${prof.isPrivate ? "Request to follow" : (theirRel && theirRel.status === "accepted" ? "Follow back" : "Follow")}</button>`;
+    else if (rel.status === "pending") f = `<button class="btn btn-ghost" data-act="unfollow">${ic("hourglass")} Requested (cancel)</button>`;
+    else f = `<button class="btn btn-ghost" data-act="unfollow">${ic("check")} Following</button>`;
+    const m = msgOk.ok ? `<a class="btn btn-ghost" href="messages.html?to=${encodeURIComponent(uid)}">${ic("chat")} Message</a>` : `<button class="btn btn-ghost" disabled title="${esc(msgOk.why || "")}">${ic("chat")} Message</button>`;
+    return `${f}${m}<div class="cm-menu"><button class="btn btn-ghost" data-act="menu" aria-label="More">⋯</button><div class="cm-menu-pop" id="pop"><button data-act="report">${ic("flag")} Report</button><button data-act="block">${ic("ban")} Block</button></div></div>`;
   }
   function render(canSee) {
+    const code = prof.code || C.studentCode(uid);
+    const pend = [...myFollowers.values()].filter(f => f.status === "pending").length;
     const head = `<div class="panel cm-head">
       ${C.avatarHtml(prof, "xl")}
       <div class="cm-info">
-        <h1>${esc(prof.name)} ${prof.isPrivate ? '<span title="Private profile">🔒</span>' : ""}</h1>
+        <h1><span data-keep>${esc(prof.name)}</span> ${prof.isPrivate ? `<span title="Private profile" class="cm-chip">${ic("lock")} Private</span>` : ""}</h1>
         ${canSee && stats && stats.bio ? `<p class="cm-bio">${esc(stats.bio)}</p>` : ""}
         <div class="cm-chips">
-          ${rank ? `<span class="cm-chip gold">🏆 Rank #${rank}</span>` : ""}
-          ${canSee && stats && stats.course ? `<span class="cm-chip">🎓 ${esc(stats.course)}</span>` : ""}
-          ${isMe && prof.hideRank ? `<span class="cm-chip">🙈 Rank hidden from others</span>` : ""}
+          ${rank ? `<span class="cm-chip gold">${ic("trophy")} Rank #${rank}</span>` : ""}
+          ${canSee && stats && stats.course ? `<span class="cm-chip">${ic("cap")} ${esc(stats.course)}</span>` : ""}
+          ${!isMe && theirRel && theirRel.status === "accepted" ? `<span class="cm-chip">Follows you</span>` : ""}
+          ${isMe && prof.hideRank ? `<span class="cm-chip">${ic("eye-off")} Rank hidden from others</span>` : ""}
+          <button class="cm-chip" data-act="copyid" title="Copy Student ID" style="cursor:pointer;color:inherit;font-family:inherit">${ic("copy")} ID ${C.fmtCode(code)}</button>
         </div>
       </div>
       <div class="cm-actions">${actionsHtml()}</div>
-    </div><div id="req"></div>`;
+    </div>`;
 
-    let body;
+    const tabs = isMe
+      ? [["overview", "Overview", "user"], ["find", "Find people", "search"], ["followers", "Followers" + (fers ? " (" + fers.length + ")" : ""), "users"], ["following", "Following" + (fing ? " (" + fing.length + ")" : ""), "user-plus"], ["requests", "Requests" + (pend ? " (" + pend + ")" : ""), "hand"]]
+      : [["overview", "Overview", "user"], ["followers", "Followers" + (fers ? " (" + fers.length + ")" : ""), "users"], ["following", "Following" + (fing ? " (" + fing.length + ")" : ""), "user-plus"]];
+    if (!tabs.some(t => t[0] === tab)) tab = "overview";
+    $("app").innerHTML = head + `<div class="cm-tabs" id="tabs">${tabs.map(([k, l, i]) => `<button class="chip ${k === tab ? "on" : ""}" data-tab="${k}">${ic(i)} ${l}</button>`).join("")}</div><div id="panel"></div>`;
+    $("panel").dataset.canSee = canSee ? "1" : "";
+    renderTab(canSee);
+  }
+  function renderTab(canSee = $("panel").dataset.canSee === "1") {
+    document.querySelectorAll("#tabs [data-tab]").forEach(b => b.classList.toggle("on", b.dataset.tab === tab));
+    const p = $("panel");
     if (!canSee) {
-      body = `<div class="panel cm-lock"><div class="big">🔒</div><h2>This profile is private</h2>
+      p.innerHTML = `<div class="panel cm-lock"><div class="big">${ic("lock")}</div><h2>This profile is private</h2>
         <p class="cm-sub">Send a follow request. Once ${esc(prof.name)} accepts, you can see their rank, followers and achievements.</p></div>`;
-    } else {
-      const s = stats || { tests: 0, bestPercent: 0, streak: 0 };
-      const rankTxt = rank ? "#" + rank : (isMe || !prof.hideRank ? "–" : "🔒");
-      body = `<div class="cm-stats">
-        <button class="cm-stat" data-act="followers"><b>${fers ? fers.length : "–"}</b><span>Followers</span></button>
-        <button class="cm-stat" data-act="following"><b>${fing ? fing.length : "–"}</b><span>Following</span></button>
-        <div class="cm-stat"><b>${s.tests}</b><span>Tests taken</span></div>
-        <div class="cm-stat"><b>${s.bestPercent}%</b><span>Best score</span></div>
-        <div class="cm-stat"><b>${s.streak}🔥</b><span>Day streak</span></div>
-      </div>
-      <div class="panel"><h2>🏅 Achievements</h2>
-        <div class="cm-chips">${C.badgesFor(stats, rank).map(b => `<span class="cm-chip">${esc(b)}</span>`).join("") || '<span class="cm-sub" style="margin:0">No achievements yet. Take a test to earn your first badge!</span>'}</div>
-        <p class="cm-sub" style="margin:12px 0 0;font-size:.85rem">Rank: <b>${rankTxt}</b>${stats && stats.points ? " · Points: <b>" + stats.points + "</b> · Average: <b>" + stats.avgPercent + "%</b>" : ""}</p>
-      </div>`;
+      return;
     }
-    $("app").innerHTML = head + body;
+    if (tab === "overview") p.innerHTML = overviewHtml();
+    else if (tab === "find") findTab();
+    else if (tab === "followers") { p.innerHTML = `<div class="cm-list" id="lst"></div>`; peopleList($("lst"), fers, "follower", isMe ? "No followers yet. Share your Student ID with friends!" : "No followers yet."); }
+    else if (tab === "following") { p.innerHTML = `<div class="cm-list" id="lst"></div>`; peopleList($("lst"), fing, "target", isMe ? "You are not following anyone yet. Try the Find people tab." : "Not following anyone yet."); }
+    else if (tab === "requests") requestsTab();
   }
 
-  async function renderRequests() {
+  /* ---------- overview ---------- */
+  function spark(vals) {
+    if (vals.length < 2) return "";
+    const W = 320, H = 90, pad = 8, n = vals.length;
+    const pts = vals.map((v, i) => [pad + i * (W - 2 * pad) / (n - 1), H - pad - Math.max(0, Math.min(100, v)) / 100 * (H - 2 * pad)]);
+    const line = pts.map(p => p[0].toFixed(1) + "," + p[1].toFixed(1)).join(" ");
+    return `<svg viewBox="0 0 ${W} ${H}" class="cm-spark" role="img" aria-label="Score trend"><defs><linearGradient id="sg" x1="0" y1="0" x2="0" y2="1"><stop offset="0" stop-color="var(--gold)" stop-opacity=".45"/><stop offset="1" stop-color="var(--gold)" stop-opacity="0"/></linearGradient></defs>
+      <polygon points="${pad},${H - pad} ${line} ${W - pad},${H - pad}" fill="url(#sg)"/><polyline points="${line}" fill="none" stroke="var(--gold2)" stroke-width="2.5" stroke-linejoin="round" stroke-linecap="round"/>
+      ${pts.map((p, i) => `<circle cx="${p[0].toFixed(1)}" cy="${p[1].toFixed(1)}" r="${i === n - 1 ? 4 : 2.5}" fill="var(--gold2)"/>`).join("")}</svg>`;
+  }
+  function overviewHtml() {
+    const s = stats || { tests: 0, bestPercent: 0, streak: 0 };
+    const rankTxt = rank ? "#" + rank : (isMe || !prof.hideRank ? "–" : ic("lock"));
+    const code = prof.code || C.studentCode(uid);
+    let out = `<div class="cm-stats">
+      <button class="cm-stat" data-tab="followers"><b>${fers ? fers.length : "–"}</b><span>Followers</span></button>
+      <button class="cm-stat" data-tab="following"><b>${fing ? fing.length : "–"}</b><span>Following</span></button>
+      <div class="cm-stat"><b>${s.tests}</b><span>Tests taken</span></div>
+      <div class="cm-stat"><b>${s.bestPercent}%</b><span>Best score</span></div>
+      <div class="cm-stat"><b>${s.streak} ${ic("flame")}</b><span>Day streak</span></div></div>
+    <div class="panel"><h2>${ic("medal")} Achievements</h2>
+      <div class="cm-chips">${C.badgesFor(stats, rank).map(b => `<span class="cm-chip">${esc(b)}</span>`).join("") || '<span class="cm-sub" style="margin:0">No achievements yet. Take a test to earn your first badge!</span>'}</div>
+      <p class="cm-sub" style="margin:12px 0 0;font-size:.85rem">Rank: <b>${rankTxt}</b>${stats && stats.points ? " · Points: <b>" + stats.points + "</b> · Average: <b>" + stats.avgPercent + "%</b>" : ""}</p></div>`;
+    if (isMe) {
+      const vals = tests.slice().reverse().map(r => +r.percent || 0);
+      out += `<div class="panels"><div class="panel"><h2>${ic("trend")} Progress</h2>${vals.length > 1 ? spark(vals) + `<p class="cm-sub" style="margin:6px 0 0;font-size:.82rem">Your last ${vals.length} test scores (%)</p>` : `<p class="cm-sub" style="margin:0">Take at least 2 tests to see your progress chart.</p>`}</div>
+        <div class="panel"><h2>${ic("notes")} Recent tests</h2>${tests.length ? `<div class="cm-list">${tests.slice(0, 5).map(r => `<div class="cm-row"><div class="grow"><b data-keep>${esc(r.testTitle || "Test")}</b><small>${dateTxt(C.A.toMs(r.createdAt) || Date.now())}${r.rank ? " · Rank #" + r.rank + " of " + r.rankTotal : ""}</small></div><div class="cm-pts">${Math.round(+r.percent || 0)}%<small>${r.score}/${r.total}</small></div></div>`).join("")}</div>` : `<p class="cm-sub" style="margin:0">No tests yet. <a href="tests.html" style="color:var(--gold2)">Take one now →</a></p>`}</div></div>
+        <div class="panel"><h2>${ic("link")} Your Student ID</h2>
+          <p class="cm-sub" style="margin-bottom:12px">Friends can type this ID in <b>Find people</b> (or open your link) to reach your profile, follow you and message you, even if your profile is private.</p>
+          <div class="cm-idbox"><code>${C.fmtCode(code)}</code><button class="btn btn-ghost" data-act="copyid">${ic("copy")} Copy ID</button><button class="btn btn-ghost" data-act="copylink">${ic("link")} Copy profile link</button></div></div>`;
+    }
+    return out;
+  }
+
+  /* ---------- find people (name or Student ID) ---------- */
+  function findTab() {
+    $("panel").innerHTML = `<input class="cm-search" id="q" type="search" placeholder="Search by name or Student ID (e.g. ${C.fmtCode(prof.code || C.studentCode(me.uid))})" maxlength="40" autocomplete="off">
+      <p class="cm-sub" style="font-size:.82rem;margin:8px 0 12px">Name search shows public profiles. Private profiles can only be found with their exact Student ID.</p>
+      <div id="found" class="cm-list"></div>
+      <h3 style="margin:24px 0 10px">Suggested for you</h3><div id="sugg" class="cm-list"><div class="skel"></div></div>`;
+    let timer;
+    $("q").addEventListener("input", () => {
+      clearTimeout(timer);
+      timer = setTimeout(async () => {
+        const q = $("q").value;
+        if (q.trim().length < 2) { $("found").innerHTML = ""; return; }
+        try {
+          const res = (await C.searchStudents(q)).slice(0, 30);
+          $("found").innerHTML = res.length ? res.map(p => personRow(p, p.byId ? "Found by Student ID" : "")).join("") : `<div class="empty">No student found. Check the spelling or the Student ID.</div>`;
+        } catch (e) { $("found").innerHTML = `<div class="empty">${esc(C.errText(e))}</div>`; }
+      }, 350);
+    });
+    suggestions();
+  }
+  async function suggestions() {
     try {
-      const reqs = await C.A.fsWhere("follows", [["target", "==", uid], ["status", "==", "pending"]]);
-      if (!reqs.length) { $("req").innerHTML = ""; return; }
-      const ps = await C.profilesOf(reqs.map(r => r.follower), 30);
-      $("req").innerHTML = `<div class="panel"><h2>🙋 Follow requests (${reqs.length})</h2><div class="cm-list">${ps.map(p => `
-        <div class="cm-row"><a href="profile.html?u=${encodeURIComponent(p.id)}">${C.avatarHtml(p)}</a><div class="grow"><b>${esc(p.name)}</b></div>
-        <button class="btn btn-gold" data-act="accept" data-id="${esc(p.id)}">Accept</button><button class="btn btn-ghost" data-act="decline" data-id="${esc(p.id)}">Decline</button></div>`).join("")}</div></div>`;
-    } catch (e) { /* requests are optional */ }
+      if (!lbRows) lbRows = await C.getLeaderboard();
+      const myCourse = stats && stats.course;
+      const pool = lbRows.filter(r => r.uid !== me.uid && !myFollowing.has(r.uid));
+      const same = myCourse ? pool.filter(r => C.sameCourse(r.course, myCourse)) : [];
+      const ids = [...same, ...pool.filter(r => !same.includes(r))].slice(0, 6).map(r => r.uid);
+      const ps = await C.profilesOf(ids);
+      if ($("sugg")) $("sugg").innerHTML = ps.length ? ps.map(p => personRow(p, myCourse && same.some(r => r.uid === p.id) ? "Same course as you" : "Top student")).join("") : `<div class="empty">No suggestions yet. Search by name or Student ID above.</div>`;
+    } catch (e) { if ($("sugg")) $("sugg").innerHTML = `<div class="empty">${esc(C.errText(e))}</div>`; }
   }
 
-  /* ---------- followers / following list ---------- */
-  async function showList(title, rows, key) {
-    const m = modal(`<h2>${title}<button class="cm-x" aria-label="Close">✕</button></h2><div class="cm-list" id="lst"><div class="skel"></div></div>`);
-    if (!rows) { m.el.querySelector("#lst").innerHTML = `<div class="empty">This list is not available.</div>`; return; }
-    const ps = await C.profilesOf(rows.map(r => r[key]));
-    const stat = await Promise.all(ps.map(p => C.getStats(p.id).catch(() => null)));
-    m.el.querySelector("#lst").innerHTML = ps.length ? ps.map((p, i) => `<a class="cm-row" href="profile.html?u=${encodeURIComponent(p.id)}">${C.avatarHtml(p, "sm")}<div class="grow"><b>${esc(p.name)}${p.isPrivate ? " 🔒" : ""}</b><small>${stat[i] && stat[i].shown && !p.hideRank && stat[i].tests ? "🏆 " + stat[i].points + " pts" : ""}</small></div></a>`).join("") : `<div class="empty">Nobody here yet.</div>`;
+  /* ---------- follow requests ---------- */
+  async function requestsTab() {
+    const reqs = [...myFollowers.values()].filter(f => f.status === "pending");
+    const el = $("panel");
+    if (!reqs.length) { el.innerHTML = `<div class="empty">No follow requests right now.</div>`; return; }
+    const ps = await C.profilesOf(reqs.map(r => r.follower), 50);
+    el.innerHTML = `<div class="cm-list">${ps.map(p => `<div class="cm-row"><a href="profile.html?u=${encodeURIComponent(p.id)}">${C.avatarHtml(p, "sm")}</a><div class="grow"><a href="profile.html?u=${encodeURIComponent(p.id)}"><b>${esc(p.name)}</b></a><small>wants to follow you</small></div>
+      <button class="btn btn-gold" data-act="accept" data-id="${esc(p.id)}">Accept</button><button class="btn btn-ghost" data-act="decline" data-id="${esc(p.id)}">Decline</button></div>`).join("")}</div>`;
   }
 
   /* ---------- edit profile ---------- */
   function openEdit(welcome) {
     let av = prof.avatar || "";
     const s = stats || {};
-    const m = modal(`<h2>${welcome ? "👋 Set up your profile" : "Edit profile"}<button class="cm-x" aria-label="Close">✕</button></h2>
+    const m = modal(`<h2>${welcome ? "Set up your profile" : "Edit profile"}<button class="cm-x" aria-label="Close">✕</button></h2>
       ${welcome ? '<p class="cm-sub" style="font-size:.9rem">Choose how you appear to other students. You can change all of this later.</p>' : ""}
       <div class="cm-field" style="display:flex;gap:14px;align-items:center"><div id="e-av"></div>
-        <div><button class="btn btn-ghost" id="e-up" type="button">📷 Upload photo</button> <button class="btn btn-ghost" id="e-rm" type="button">Remove</button><input type="file" id="e-file" accept="image/*" hidden></div></div>
+        <div><button class="btn btn-ghost" id="e-up" type="button">${ic("camera")} Upload photo</button> <button class="btn btn-ghost" id="e-rm" type="button">Remove</button><input type="file" id="e-file" accept="image/*" hidden></div></div>
       <div class="cm-field"><label>Or pick an avatar</label><div class="cm-presets" id="e-pre"></div></div>
       <div class="cm-field"><label for="e-name">Name</label><input id="e-name" maxlength="40" value="${esc(prof.name)}"></div>
       <div class="cm-field"><label for="e-bio">Short bio (max 160)</label><textarea id="e-bio" maxlength="160" rows="2" placeholder="e.g. Class 12, preparing for NEET">${esc(s.bio || "")}</textarea></div>
@@ -163,7 +268,7 @@
       q("e-av").innerHTML = C.avatarHtml({ name: q("e-name").value || prof.name, avatar: av }, "xl");
       q("e-pre").querySelectorAll("button").forEach(b => b.classList.toggle("on", av === "preset:" + b.dataset.p));
     };
-    q("e-pre").innerHTML = C.PRESETS.map(p => `<button type="button" data-p="${p}">${p}</button>`).join("");
+    q("e-pre").innerHTML = C.PRESETS.map(id => `<button type="button" data-p="${id}" aria-label="${id} avatar">${C.avatarHtml({ avatar: "preset:" + id }, "sm")}</button>`).join("");
     q("e-pre").addEventListener("click", e => { const b = e.target.closest("button"); if (b) { av = "preset:" + b.dataset.p; paint(); } });
     q("e-up").addEventListener("click", () => q("e-file").click());
     q("e-file").addEventListener("change", async e => {
@@ -180,7 +285,7 @@
       const b = q("e-save"); b.disabled = true; say(q("e-msg"), "Saving...");
       try {
         await C.saveMyProfile(me, { name, bio: q("e-bio").value.trim(), course: q("e-course").value, avatar: av, isPrivate: q("e-priv").checked, hideRank: q("e-hide").checked, dm: q("e-dm").value });
-        m.close(); await load(); C.toast("Profile saved ✓", 2500);
+        m.close(); await load(); C.toast("Profile saved", 2500);
       } catch (err) { say(q("e-msg"), C.errText(err), "err"); b.disabled = false; }
     });
   }
@@ -205,35 +310,51 @@
   /* ---------- clicks ---------- */
   document.addEventListener("click", async e => {
     const pop = $("pop"); if (pop && !e.target.closest(".cm-menu")) pop.classList.remove("open");
+    const tb = e.target.closest("[data-tab]");
+    if (tb && !tb.dataset.act) { tab = tb.dataset.tab; renderTab(); window.scrollTo({ top: 0, behavior: "smooth" }); return; }
     const b = e.target.closest("[data-act]"); if (!b) return;
-    const act = b.dataset.act;
+    const act = b.dataset.act, id = b.dataset.id;
     try {
       if (act === "menu") pop.classList.toggle("open");
       else if (act === "edit") openEdit(false);
-      else if (act === "follow") { b.disabled = true; const st = await C.follow(me.uid, myProf, uid, prof); C.toast(st === "pending" ? "Request sent ✓" : "You are now following " + prof.name, 2500); await load(); }
+      else if (act === "copyid") copy(C.fmtCode(prof.code || C.studentCode(uid)), "Student ID copied");
+      else if (act === "copylink") copy(C.profileLink(prof.code || C.studentCode(uid)), "Profile link copied");
+      else if (act === "follow") { b.disabled = true; const st = await C.follow(me.uid, myProf, uid, prof); C.toast(st === "pending" ? "Request sent" : "You are now following " + prof.name, 2500); await load(); }
       else if (act === "unfollow") { b.disabled = true; await C.unfollow(me.uid, uid); await load(); }
-      else if (act === "followers") showList("Followers", fers, "follower");
-      else if (act === "following") showList("Following", fing, "target");
-      else if (act === "accept") { await C.acceptRequest(me.uid, b.dataset.id); await load(); }
-      else if (act === "decline") { await C.declineRequest(me.uid, b.dataset.id); renderRequests(); }
+      else if (act === "pfollow") { b.disabled = true; const st = await C.follow(me.uid, myProf, id, people[id]); C.toast(st === "pending" ? "Request sent" : "Following " + people[id].name, 2200); await afterRelChange(); }
+      else if (act === "punfollow") { b.disabled = true; await C.unfollow(me.uid, id); await afterRelChange(); }
+      else if (act === "accept") { await C.acceptRequest(me.uid, id); await load(); }
+      else if (act === "decline") { await C.declineRequest(me.uid, id); await load(); }
       else if (act === "report") { pop.classList.remove("open"); openReport(); }
       else if (act === "block") { pop.classList.remove("open"); if (confirm("Block " + prof.name + "? They will not be able to follow or message you.")) { await C.blockUser(me.uid, uid); await load(); } }
       else if (act === "unblock") { await C.unblockUser(me.uid, uid); await load(); }
     } catch (err) { C.toast(C.errText(err), 6000); b.disabled = false; }
   });
+  // follow/unfollow from a list: refresh the buttons without leaving the tab (or losing the search text)
+  async function afterRelChange() {
+    await loadRelations();
+    if (isMe) { fers = [...myFollowers.values()].filter(f => f.status === "accepted"); fing = [...myFollowing.values()].filter(f => f.status === "accepted"); }
+    const keep = $("q") ? $("q").value : "";
+    const scroll = window.scrollY;
+    renderTab();
+    if (keep && $("q")) { $("q").value = keep; $("q").dispatchEvent(new Event("input")); }
+    window.scrollTo(0, scroll);
+  }
 
   protectPage(async (user, demo) => {
     me = user;
-    if (demo || C.A.isDemo()) { $("app").innerHTML = `<div class="panel cm-lock"><div class="big">🔌</div><h2>Real account needed</h2><p class="cm-sub">The community works only with a real Firebase account (not demo mode).</p></div>`; return; }
+    if (demo || C.A.isDemo()) { $("app").innerHTML = `<div class="panel cm-lock"><div class="big">${ic("plug")}</div><h2>Real account needed</h2><p class="cm-sub">The community works only with a real Firebase account (not demo mode).</p></div>`; return; }
     try {
       const r = await C.ensureMyProfile(user);
       myProf = r.profile;
-      uid = params.get("u") || user.uid;
+      const c = params.get("c");
+      if (c) { const found = await C.findByCode(c); uid = found.length ? found[0].id : "__none__"; }
+      else uid = params.get("u") || user.uid;
       isMe = uid === user.uid;
       await load();
       if (isMe && (r.created || params.get("welcome"))) { openEdit(true); history.replaceState(null, "", "profile.html"); }
     } catch (e) {
-      $("app").innerHTML = `<div class="panel cm-lock"><div class="big">⚠️</div><h2>Could not load</h2><p class="cm-sub">${esc(C.errText(e))}</p></div>`;
+      $("app").innerHTML = `<div class="panel cm-lock"><div class="big">${ic("warning")}</div><h2>Could not load</h2><p class="cm-sub">${esc(C.errText(e))}</p></div>`;
     }
   });
 </script>

@@ -7,6 +7,7 @@
 <link rel="stylesheet" href="style.css?v=9">
 <script src="site-config.js?v=9"></script>
 <script src="theme.js?v=9"></script>
+<script src="icons.js?v=9"></script>
 </head>
 <body>
 <header class="nav">
@@ -23,7 +24,10 @@
   <div class="container">
     <h1>💬 Messages</h1>
     <div class="cm-chat" id="chat">
-      <aside class="cm-side"><div class="cm-list" id="list"><div class="skel"></div></div></aside>
+      <aside class="cm-side">
+        <div style="padding:10px 10px 0"><input class="cm-search" id="nq" type="search" placeholder="New chat: name or Student ID" maxlength="40" autocomplete="off"></div>
+        <div class="cm-list" id="nres" style="padding-bottom:0"></div>
+        <div class="cm-list" id="list"><div class="skel"></div></div></aside>
       <section class="cm-conv" id="conv"><div class="cm-empty">Select a conversation, or open a student's profile and tap <b>Message</b>.</div></section>
     </div>
   </div>
@@ -43,7 +47,7 @@
     const ps = await Promise.all(chats.map(c => C.getProfile(C.otherOf(c, me.uid)).catch(() => null)));
     $("list").innerHTML = chats.length ? chats.map((c, i) => {
       const o = C.otherOf(c, me.uid), p = ps[i] || { name: "Student" };
-      return `<div class="cm-row ${cur && cur.uid === o ? "on" : ""}" data-open="${esc(o)}">${C.avatarHtml(p, "sm")}<div class="grow"><b>${esc(p.name)}</b><small>${c.lastFrom === me.uid ? "You: " : ""}${esc(c.lastText || "")}</small></div>${C.isUnread(c, me.uid) && !(cur && cur.uid === o) ? '<span class="cm-dot"></span>' : ""}</div>`;
+      return `<div class="cm-row ${cur && cur.uid === o ? "on" : ""}" data-open="${esc(o)}">${C.avatarHtml(p, "sm")}<div class="grow"><b>${esc(p.name)}</b><small data-keep>${c.lastFrom === me.uid ? "You: " : ""}${esc(c.lastText || "")}</small></div>${C.isUnread(c, me.uid) && !(cur && cur.uid === o) ? '<span class="cm-dot"></span>' : ""}</div>`;
     }).join("") : `<div class="empty">No conversations yet.</div>`;
   }
 
@@ -141,9 +145,22 @@
     });
   }
 
+  let nt;
+  $("nq").addEventListener("input", () => {
+    clearTimeout(nt);
+    nt = setTimeout(async () => {
+      const q = $("nq").value;
+      if (q.trim().length < 2) { $("nres").innerHTML = ""; return; }
+      try {
+        const res = (await C.searchStudents(q)).filter(p => p.id !== me.uid).slice(0, 6);
+        $("nres").innerHTML = res.length ? res.map(p => `<div class="cm-row" data-open="${esc(p.id)}">${C.avatarHtml(p, "sm")}<div class="grow"><b>${esc(p.name)}</b><small>${p.byId ? "Found by Student ID" : "Start a chat"}</small></div></div>`).join("") : `<div class="empty" style="padding:10px">No student found.</div>`;
+      } catch (e) { $("nres").innerHTML = `<div class="empty" style="padding:10px">${esc(C.errText(e))}</div>`; }
+    }, 350);
+  });
+
   document.addEventListener("click", e => {
     const pop = $("pop"); if (pop && !e.target.closest(".cm-menu")) pop.classList.remove("open");
-    const r = e.target.closest("[data-open]"); if (r) open(r.dataset.open);
+    const r = e.target.closest("[data-open]"); if (r) { open(r.dataset.open); $("nq").value = ""; $("nres").innerHTML = ""; }
   });
 
   protectPage(async (user, demo) => {

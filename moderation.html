@@ -7,6 +7,7 @@
 <link rel="stylesheet" href="style.css?v=9">
 <script src="site-config.js?v=9"></script>
 <script src="theme.js?v=9"></script>
+<script src="icons.js?v=9"></script>
 </head>
 <body>
 <header class="nav">
@@ -44,8 +45,8 @@
             ${(r.status || "open") === "open" ? `<button class="btn btn-gold" data-a="resolve" data-id="${esc(r.id)}">Mark resolved</button>` : ""}
             <button class="btn btn-ghost" data-a="del" data-id="${esc(r.id)}">Delete</button>
           </div></div>
-        ${r.details ? `<p style="margin:10px 0 0">${esc(r.details)}</p>` : ""}
-        ${(r.evidence || []).length ? `<div style="margin-top:10px;font-size:.88rem;color:var(--muted)"><b>Chat evidence</b>${r.evidence.map(e => `<div>${e.from === "reported" ? "⚠️ Reported" : "Reporter"}: ${esc(e.text)}</div>`).join("")}</div>` : ""}
+        ${r.details ? `<p style="margin:10px 0 0" data-keep>${esc(r.details)}</p>` : ""}
+        ${(r.evidence || []).length ? `<div style="margin-top:10px;font-size:.88rem;color:var(--muted)"><b>Chat evidence</b>${r.evidence.map(e => `<div>${e.from === "reported" ? "⚠️ Reported" : "Reporter"}: <span data-keep>${esc(e.text)}</span></div>`).join("")}</div>` : ""}
       </div>`).join("") : `<div class="empty">No ${filter} reports.</div>`;
   }
 

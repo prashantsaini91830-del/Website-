@@ -18,6 +18,9 @@ A static study-materials portal with Firebase Authentication. (The site name can
 - Settings page: profile photo, dark/light/system theme, English/Hindi, password and email change, active devices with remote logout (this device / others / all), notifications, player settings, data saver, clear local data, export my data (JSON) and delete account
 - Test questions and options can include images (upload from the admin panel or paste a link). Click an image in a test to enlarge it
 - Admin: Site tab (website name, logo letter, contact e-mail), Logins tab (recent devices of all students)
+- **Vector icons** (`icons.js`): all icons are inline SVG that follow the text colour and theme; any emoji icon added to a page later is converted automatically (put `data-keep` on an element to protect user-written text)
+- **Profile tab** in the menu (`profile.html`): overview with progress chart and recent tests, Find people (by name or Student ID), followers, following and follow requests in one place
+- **Student ID** (SHA-256 hash of the account id, shown as `XXXX-XXXX`): search by ID or open `profile.html?c=XXXXXXXX` to reach any student, even a private one
 - **Student Community** (`community.html`, `profile.html`, `messages.html`): profile with avatar/bio/course, follow & followers, course-wise leaderboard, private profiles with follow requests, hide-my-rank, direct messages with block and report (reports are reviewed in `moderation.html`, admins only)
 - Responsive dark design with no build step
 
@@ -40,6 +43,7 @@ A static study-materials portal with Firebase Authentication. (The site name can
 | `files/` | Put your own PDFs/videos here and link them as `files/name.pdf` (sharpest PDFs) |
 | `privacy.html` / `terms.html` | Policy pages (template text, replace the contact email) |
 | `community.html` / `profile.html` / `messages.html` | Student Community: leaderboard + find students, profiles, chat |
+| `icons.js` | Vector icon set + automatic emoji-to-SVG conversion |
 | `community.js` | All community logic (uses the same Firebase project as `auth.js`) |
 | `moderation.html` | Admin-only list of student reports |
 | `firestore.rules` | Same rules as below, as a ready file to paste |
@@ -142,9 +146,10 @@ service cloud.firestore {
     match /profiles/{uid} {                 // public card: name, avatar, privacy flags
       allow read: if signedIn();
       allow create, update: if (isOwner(uid)
-          && request.resource.data.keys().hasOnly(["name", "nameLc", "avatar", "isPrivate", "hideRank", "dm", "updatedAt"])
+          && request.resource.data.keys().hasOnly(["name", "nameLc", "avatar", "isPrivate", "hideRank", "dm", "code", "updatedAt"])
           && request.resource.data.name is string && request.resource.data.name.size() > 0 && request.resource.data.name.size() <= 40
           && request.resource.data.avatar.size() < 40000
+          && request.resource.data.get("code", "").size() <= 8
           && request.resource.data.dm in ["all", "followers", "none"])
         || isAdmin();
       allow delete: if isOwner(uid) || isAdmin();
@@ -241,3 +246,8 @@ Create the document `admins/<your UID>` (field `role` = `admin`) in the Firebase
 - **Messages:** default is "only students I follow" can message me. Blocked users cannot message or follow. Reports include the last 8 messages of the chat.
 - **Known limit:** the existing `scores` collection (used for the per-test rank in `tests.html`) is still readable by all signed-in students, as before. For hard privacy of scores, move ranking to a Cloud Function.
 - **Scale:** the leaderboard loads all public students and sorts in the browser. This is fine for a few hundred to a few thousand students. After that, move it to a Cloud Function.
+
+## Profile tab and Student ID notes
+- The Student ID is `sha256("gyaan-hub:" + uid)`, first 40 bits as 8 Crockford-base32 characters. It is stored in `profiles/{uid}.code` so it can be searched. A search result is accepted only if the hash of the result's owner id gives the same code, so nobody can claim someone else's ID.
+- Name search lists public profiles only. Private profiles are found only by exact Student ID (they can then be sent a follow request).
+- Republish `firestore.rules` once more: the `profiles` rule now allows the `code` field.
