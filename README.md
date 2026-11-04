@@ -19,8 +19,8 @@ A static study-materials portal with Firebase Authentication. (The site name can
 - Test questions and options can include images (upload from the admin panel or paste a link). Click an image in a test to enlarge it
 - Admin: Site tab (website name, logo letter, contact e-mail), Logins tab (recent devices of all students)
 - **Vector icons** (`icons.js`): all icons are inline SVG that follow the text colour and theme; any emoji icon added to a page later is converted automatically (put `data-keep` on an element to protect user-written text)
-- **Profile tab** in the menu (`profile.html`): overview with progress chart and recent tests, Find people (by name or Student ID), followers, following and follow requests in one place
-- **Student ID** (SHA-256 hash of the account id, shown as `XXXX-XXXX`): search by ID or open `profile.html?c=XXXXXXXX` to reach any student, even a private one
+- **Profile tab** in the menu (`profile.html`): overview with progress chart and recent tests, Find people (by name or username), followers, following and follow requests in one place
+- **Username** (SHA-256 hash of the account id, shown as `@xxxxxxxx`): search by username or open `profile.html?c=XXXXXXXX` to reach any student, even a private one. (Replaces the old "Student ID"; old IDs and links still work.)
 - **Student Community** (`community.html`, `profile.html`, `messages.html`): profile with avatar/bio/course, follow & followers, course-wise leaderboard, private profiles with follow requests, hide-my-rank, direct messages with block and report (reports are reviewed in `moderation.html`, admins only)
 - **Chat extras:** unsend and edit your own messages, and send photos, videos, audio, PDFs, APK files, ZIPs and any other document (paperclip button; you can also paste an image)
 - **Posts & reels:** upload a post (photo / video / text) or a reel (video up to 90 seconds) from Profile, edit the caption, delete, like, and see a Feed of the students you follow
@@ -290,9 +290,9 @@ Create the document `admins/<your UID>` (field `role` = `admin`) in the Firebase
 - **Known limit:** the existing `scores` collection (used for the per-test rank in `tests.html`) is still readable by all signed-in students, as before. For hard privacy of scores, move ranking to a Cloud Function.
 - **Scale:** the leaderboard loads all public students and sorts in the browser. This is fine for a few hundred to a few thousand students. After that, move it to a Cloud Function.
 
-## Profile tab and Student ID notes
-- The Student ID is `sha256("gyaan-hub:" + uid)`, first 40 bits as 8 Crockford-base32 characters. It is stored in `profiles/{uid}.code` so it can be searched. A search result is accepted only if the hash of the result's owner id gives the same code, so nobody can claim someone else's ID.
-- Name search lists public profiles only. Private profiles are found only by exact Student ID (they can then be sent a follow request).
+## Profile tab and username notes
+- The username is `sha256("gyaan-hub:" + uid)`, first 40 bits as 8 Crockford-base32 characters. It is stored in `profiles/{uid}.code` so it can be searched. A search result is accepted only if the hash of the result's owner id gives the same code, so nobody can claim someone else's ID.
+- Name search lists public profiles only. Private profiles are found only by exact username (they can then be sent a follow request).
 - Republish `firestore.rules` once more: the `profiles` rule now allows the `code` field.
 
 ## Photos, videos and files (chat attachments, posts, reels)

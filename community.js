@@ -51,10 +51,11 @@ function shrink(dataUrl, size = 120) {
 export async function photoFromFile(file) { return shrink(await squareAvatar(file, 256), 120); }
 
 
-/* ---------- hash function: Student ID ----------
-   SHA-256 of the account id -> first 40 bits -> 8 characters (Crockford base32), shown as XXXX-XXXX.
-   Nobody can guess another student's ID from their name, and the ID cannot be faked: a profile found by ID is
-   accepted only if sha256(its owner id) gives the same code (checked in findByCode). */
+/* ---------- hash function: Username ----------
+   SHA-256 of the account id -> first 40 bits -> 8 characters (Crockford base32), shown as a username: @k7f3m9q2.
+   Nobody can guess another student's username from their name, and it cannot be faked: a profile found by username is
+   accepted only if sha256(its owner id) gives the same code (checked in findByCode).
+   The value is still stored in profiles/{uid}.code (upper case), so old profiles and old links keep working. */
 export function sha256(msg) {
   const K = [0x428a2f98, 0x71374491, 0xb5c0fbcf, 0xe9b5dba5, 0x3956c25b, 0x59f111f1, 0x923f82a4, 0xab1c5ed5, 0xd807aa98, 0x12835b01, 0x243185be, 0x550c7dc3, 0x72be5d74, 0x80deb1fe, 0x9bdc06a7, 0xc19bf174,
     0xe49b69c1, 0xefbe4786, 0x0fc19dc6, 0x240ca1cc, 0x2de92c6f, 0x4a7484aa, 0x5cb0a9dc, 0x76f988da, 0x983e5152, 0xa831c66d, 0xb00327c8, 0xbf597fc7, 0xc6e00bf3, 0xd5a79147, 0x06ca6351, 0x14292967,
@@ -93,13 +94,14 @@ export function studentCode(uid) {
   for (let i = 0; i < 8; i++) { out = B32[Number(n & 31n)] + out; n >>= 5n; }
   return out;
 }
-export const fmtCode = c => (c || "").slice(0, 4) + "-" + (c || "").slice(4);
+export const fmtCode = c => "@" + String(c || "").toLowerCase();      // 7K3M9Q2X -> @7k3m9q2x
+export const userName = uid => fmtCode(studentCode(uid));
 export function normCode(q) {
   let c = String(q || "").toUpperCase().replace(/[^0-9A-Z]/g, "").replace(/O/g, "0").replace(/[IL]/g, "1");
   if (c.length === 10 && c.startsWith("GH")) c = c.slice(2);
   return c;
 }
-export const looksLikeCode = q => /^[0-9A-Za-z]{4}[-\s]?[0-9A-Za-z]{4}$/.test(String(q).trim().replace(/^gh[-\s]?/i, ""));
+export const looksLikeCode = q => /^[0-9A-Za-z]{4}[-\s]?[0-9A-Za-z]{4}$/.test(String(q).trim().replace(/^@/, "").replace(/^gh[-\s]?/i, ""));
 export const profileLink = code => new URL("profile.html?c=" + code, location.href).href;
 export async function findByCode(q) {
   const code = normCode(q);
@@ -124,7 +126,7 @@ export async function ensureMyProfile(user) {
   let p = null;
   try { p = await getProfile(user.uid, true); } catch (e) { throw e; }
   if (p) {
-    if (p.code !== studentCode(user.uid)) { p.code = studentCode(user.uid); try { await A.fsSetPath(["profiles", user.uid], { code: p.code }); } catch (e) {} }   // older profiles get an ID
+    if (p.code !== studentCode(user.uid)) { p.code = studentCode(user.uid); try { await A.fsSetPath(["profiles", user.uid], { code: p.code }); } catch (e) {} }   // older profiles get a username
     return { profile: p, created: false };
   }
   const ud = (await A.getUserDoc(user.uid)) || {};
@@ -180,7 +182,7 @@ async function syncFollowPrivacy(uid, priv) {
     for (const f of await A.fsQuery("follows", "target", uid)) if (f.targetPrivate !== priv) await A.fsSetPath(["follows", f.id], { targetPrivate: priv });
   } catch (e) {}
 }
-// Search by name (public profiles only) or by exact Student ID (finds private profiles too, so a request can be sent).
+// Search by name (public profiles only) or by exact username (finds private profiles too, so a request can be sent).
 export async function searchStudents(q) {
   q = String(q || "").trim();
   if (q.length < 2) return [];
@@ -269,11 +271,11 @@ export async function reportUser(me, myName, other, otherName, reason, details, 
 
 /* ---------- messages ---------- */
 export const chatId = (a, b) => (a < b ? a + "_" + b : b + "_" + a);
-export async function canMessage(me, them, theirProf) {
+export async function canMessage(me, them, theirProf, theirFollowRow) {
   const dm = (theirProf && theirProf.dm) || "followers";
   if (dm === "all") return { ok: true };
   if (dm === "none") return { ok: false, why: "This student does not accept messages." };
-  const f = await getRelation(them, me);   // does THEY follow ME?
+  const f = theirFollowRow !== undefined ? theirFollowRow : await getRelation(them, me);   // does THEY follow ME? (row can be passed in when already loaded)
   return f && f.status === "accepted" ? { ok: true } : { ok: false, why: "This student only accepts messages from people they follow." };
 }
 export async function listChats(me) {

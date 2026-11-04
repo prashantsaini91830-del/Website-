@@ -4,6 +4,16 @@
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1.0">
 <title>Community | Gyaan Hub</title>
+<link rel="preconnect" href="https://www.gstatic.com" crossorigin>
+<link rel="preconnect" href="https://firestore.googleapis.com" crossorigin>
+<link rel="modulepreload" href="https://www.gstatic.com/firebasejs/10.14.1/firebase-app.js">
+<link rel="modulepreload" href="https://www.gstatic.com/firebasejs/10.14.1/firebase-auth.js">
+<link rel="modulepreload" href="https://www.gstatic.com/firebasejs/10.14.1/firebase-firestore.js">
+<link rel="modulepreload" href="auth.js?v=10">
+<link rel="modulepreload" href="community.js?v=10">
+<link rel="modulepreload" href="media.js?v=10">
+<link rel="modulepreload" href="files.js?v=10">
+<link rel="modulepreload" href="player-utils.js?v=10">
 <link rel="stylesheet" href="style.css?v=10">
 <script src="site-config.js?v=10"></script>
 <script src="theme.js?v=10"></script>
@@ -39,7 +49,7 @@
     </section>
 
     <section id="tab-find" style="display:none">
-      <input class="cm-search" id="q" type="search" placeholder="Search by name or Student ID (XXXX-XXXX)..." maxlength="40" autocomplete="off">
+      <input class="cm-search" id="q" type="search" placeholder="Search by name or username (@username)..." maxlength="40" autocomplete="off">
       <div id="found" class="cm-list" style="margin-top:14px"></div>
     </section>
   </div>
@@ -99,7 +109,7 @@
       if (q.trim().length < 2) { $("found").innerHTML = ""; return; }
       try {
         const res = (await C.searchStudents(q)).filter(p => p.id !== me.uid).slice(0, 30);
-        $("found").innerHTML = res.length ? res.map(p => `<a class="cm-row" href="profile.html?u=${encodeURIComponent(p.id)}">${C.avatarHtml(p)}<div class="grow"><b>${esc(p.name)}</b><small>${p.isPrivate ? "Private profile · " : ""}${p.byId ? "Found by Student ID" : ""}</small></div><span class="btn btn-ghost">View</span></a>`).join("") : `<div class="empty">No student found.</div>`;
+        $("found").innerHTML = res.length ? res.map(p => `<a class="cm-row" href="profile.html?u=${encodeURIComponent(p.id)}">${C.avatarHtml(p)}<div class="grow"><b>${esc(p.name)}</b><small>${p.isPrivate ? "Private profile · " : ""}${p.byId ? "Found by username" : ""}</small></div><span class="btn btn-ghost">View</span></a>`).join("") : `<div class="empty">No student found.</div>`;
       } catch (e) { $("found").innerHTML = `<div class="empty">${esc(C.errText(e))}</div>`; }
     }, 350);
   });

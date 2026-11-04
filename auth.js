@@ -45,6 +45,7 @@ if (!DEMO) {
   window.addEventListener("consent-changed", startAnalytics);
 }
 
+export const getFbApp = () => app;   // used by files.js for Firebase Storage
 window.__authReady = true;
 const DEMO_KEY = "gyaan_demo_user";
 

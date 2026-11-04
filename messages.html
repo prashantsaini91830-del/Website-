@@ -4,6 +4,16 @@
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1.0">
 <title>Messages | Gyaan Hub</title>
+<link rel="preconnect" href="https://www.gstatic.com" crossorigin>
+<link rel="preconnect" href="https://firestore.googleapis.com" crossorigin>
+<link rel="modulepreload" href="https://www.gstatic.com/firebasejs/10.14.1/firebase-app.js">
+<link rel="modulepreload" href="https://www.gstatic.com/firebasejs/10.14.1/firebase-auth.js">
+<link rel="modulepreload" href="https://www.gstatic.com/firebasejs/10.14.1/firebase-firestore.js">
+<link rel="modulepreload" href="auth.js?v=10">
+<link rel="modulepreload" href="community.js?v=10">
+<link rel="modulepreload" href="media.js?v=10">
+<link rel="modulepreload" href="files.js?v=10">
+<link rel="modulepreload" href="player-utils.js?v=10">
 <link rel="stylesheet" href="style.css?v=10">
 <script src="site-config.js?v=10"></script>
 <script src="theme.js?v=10"></script>
@@ -25,7 +35,7 @@
     <h1>💬 Messages</h1>
     <div class="cm-chat" id="chat">
       <aside class="cm-side">
-        <div style="padding:10px 10px 0"><input class="cm-search" id="nq" type="search" placeholder="New chat: name or Student ID" maxlength="40" autocomplete="off"></div>
+        <div style="padding:10px 10px 0"><input class="cm-search" id="nq" type="search" placeholder="New chat: name or username" maxlength="40" autocomplete="off"></div>
         <div class="cm-list" id="nres" style="padding-bottom:0"></div>
         <div class="cm-list" id="list"><div class="skel"></div></div></aside>
       <section class="cm-conv" id="conv"><div class="cm-empty">Select a conversation, or open a student's profile and tap <b>Message</b>.</div></section>
@@ -247,7 +257,7 @@
       if (q.trim().length < 2) { $("nres").innerHTML = ""; return; }
       try {
         const res = (await C.searchStudents(q)).filter(p => p.id !== me.uid).slice(0, 6);
-        $("nres").innerHTML = res.length ? res.map(p => `<div class="cm-row" data-open="${esc(p.id)}">${C.avatarHtml(p, "sm")}<div class="grow"><b>${esc(p.name)}</b><small>${p.byId ? "Found by Student ID" : "Start a chat"}</small></div></div>`).join("") : `<div class="empty" style="padding:10px">No student found.</div>`;
+        $("nres").innerHTML = res.length ? res.map(p => `<div class="cm-row" data-open="${esc(p.id)}">${C.avatarHtml(p, "sm")}<div class="grow"><b>${esc(p.name)}</b><small>${p.byId ? "Found by username" : "Start a chat"}</small></div></div>`).join("") : `<div class="empty" style="padding:10px">No student found.</div>`;
       } catch (e) { $("nres").innerHTML = `<div class="empty" style="padding:10px">${esc(C.errText(e))}</div>`; }
     }, 350);
   });

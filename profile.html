@@ -4,6 +4,16 @@
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1.0">
 <title>Profile | Gyaan Hub</title>
+<link rel="preconnect" href="https://www.gstatic.com" crossorigin>
+<link rel="preconnect" href="https://firestore.googleapis.com" crossorigin>
+<link rel="modulepreload" href="https://www.gstatic.com/firebasejs/10.14.1/firebase-app.js">
+<link rel="modulepreload" href="https://www.gstatic.com/firebasejs/10.14.1/firebase-auth.js">
+<link rel="modulepreload" href="https://www.gstatic.com/firebasejs/10.14.1/firebase-firestore.js">
+<link rel="modulepreload" href="auth.js?v=10">
+<link rel="modulepreload" href="community.js?v=10">
+<link rel="modulepreload" href="media.js?v=10">
+<link rel="modulepreload" href="files.js?v=10">
+<link rel="modulepreload" href="player-utils.js?v=10">
 <link rel="stylesheet" href="style.css?v=10">
 <script src="site-config.js?v=10"></script>
 <script src="theme.js?v=10"></script>
@@ -36,6 +46,8 @@
   let me, myProf, prof, uid, isMe, rel, theirRel, blocked, stats, rank, fers, fing, msgOk, tests = [];
   let myFollowing = new Map(), myFollowers = new Map(), tab = params.get("tab") || "overview", lbRows = null;
   const people = {}, postMap = {};
+  let wantedCode = "";
+  let loadSeq = 0, extrasPending = false;      // extrasPending: rank + recent tests are still loading in the background
 
   /* ---------- helpers ---------- */
   function modal(html) {
@@ -85,35 +97,63 @@
     myFollowing = new Map(a.map(f => [f.target, f])); myFollowers = new Map(b.map(f => [f.follower, f]));
   }
   async function load() {
-    await loadRelations();
-    prof = await C.getProfile(uid, true);
-    if (!prof) { $("app").innerHTML = `<div class="panel cm-lock"><div class="big">${ic("help")}</div><h2>Profile not found</h2><p class="cm-sub">This student has no community profile${params.get("c") ? ", or the Student ID is wrong" : " yet"}.</p><a class="btn btn-gold" href="profile.html?tab=find">Find students</a></div>`; return; }
+    const seq = ++loadSeq;
+    // 1) everything that does not depend on anything else is fetched at the same time
+    const [, p, bl, st0] = await Promise.all([
+      loadRelations(),
+      isMe ? C.getProfile(uid) : C.getProfile(uid, true),      // my own profile was just loaded by ensureMyProfile (cached)
+      isMe ? false : C.isBlocked(me.uid, uid),
+      isMe ? C.getStats(uid) : null
+    ]);
+    if (seq !== loadSeq) return;
+    prof = p;
+    if (!prof) { $("app").innerHTML = `<div class="panel cm-lock"><div class="big">${ic("help")}</div><h2>Profile not found</h2><p class="cm-sub">This student has no community profile${wantedCode ? ", or the username is wrong" : " yet"}.</p><a class="btn btn-gold" href="profile.html?tab=find">Find students</a></div>`; return; }
+    if (isMe) myProf = prof;
     rel = isMe ? null : (myFollowing.get(uid) || null);
     theirRel = isMe ? null : (myFollowers.get(uid) || null);
-    blocked = isMe ? false : await C.isBlocked(me.uid, uid);
+    blocked = !!bl;
     const accepted = !!rel && rel.status === "accepted";
     const canSee = isMe || !prof.isPrivate || accepted;
-    stats = canSee ? await C.getStats(uid) : null;
-    rank = null;
-    if (stats && stats.tests && (isMe || !prof.hideRank)) {
-      const rows = await C.getLeaderboard().catch(() => []);
-      lbRows = rows;
-      rank = C.rankFor(rows, stats);
-      if (isMe) C.celebrateRank(me.uid, rank);
-    }
+    // 2) what the first screen needs (for someone else: their stats + follower lists, together)
+    let lists = null;
     if (isMe) {
+      stats = st0;
       fers = [...myFollowers.values()].filter(f => f.status === "accepted");
       fing = [...myFollowing.values()].filter(f => f.status === "accepted");
-      tests = await C.recentTests(uid, 12).catch(() => []);
     } else {
-      fers = fing = null;
-      if (canSee) [fers, fing] = await Promise.all([C.listFollowers(uid, false, prof, accepted).catch(() => null), C.listFollowing(uid, false, prof, accepted).catch(() => null)]);
-      if (fers) fers = fers.filter(f => f.status === "accepted");
-      if (fing) fing = fing.filter(f => f.status === "accepted");
+      fers = fing = null; stats = null;
+      if (canSee) {
+        const [s2, l2] = await Promise.all([
+          C.getStats(uid),
+          Promise.all([C.listFollowers(uid, false, prof, accepted).catch(() => null), C.listFollowing(uid, false, prof, accepted).catch(() => null)])
+        ]);
+        if (seq !== loadSeq) return;
+        stats = s2; lists = l2;
+      }
+      fers = lists && lists[0] ? lists[0].filter(f => f.status === "accepted") : null;
+      fing = lists && lists[1] ? lists[1].filter(f => f.status === "accepted") : null;
     }
+    // can I message them? "do they follow me" is already in the relations we loaded, so no extra request
     msgOk = { ok: false };
-    if (!isMe && !blocked) msgOk = await C.canMessage(me.uid, uid, prof).catch(() => ({ ok: false, why: "Messaging is not available." }));
-    render(canSee);
+    if (!isMe && !blocked) msgOk = await C.canMessage(me.uid, uid, prof, theirRel || null).catch(() => ({ ok: false, why: "Messaging is not available." }));
+    extrasPending = isMe;
+    render(canSee);                    // show the page now
+    loadExtras(seq, canSee);           // rank + recent tests arrive a moment later and are filled in
+  }
+  // The leaderboard (all students) and the test history are the slowest reads and only decorate the page.
+  async function loadExtras(seq, canSee) {
+    const wantRank = canSee && stats && stats.tests && (isMe || !prof.hideRank);
+    const [rows, t] = await Promise.all([
+      wantRank ? C.getLeaderboard().catch(() => null) : null,
+      isMe ? C.recentTests(uid, 12).catch(() => null) : null
+    ]);
+    if (seq !== loadSeq) return;       // the page was reloaded meanwhile
+    extrasPending = false;
+    rank = null;
+    if (rows) { lbRows = rows; rank = C.rankFor(rows, stats); if (isMe) C.celebrateRank(me.uid, rank); }
+    if (t) tests = t;
+    const slot = $("rk"); if (slot) slot.innerHTML = rank ? `<span class="cm-chip gold">${ic("trophy")} Rank #${rank}</span>` : "";
+    if (tab === "overview" && $("panel") && $("panel").dataset.canSee === "1") $("panel").innerHTML = overviewHtml();
   }
 
   /* ---------- header ---------- */
@@ -136,11 +176,11 @@
         <h1><span data-keep>${esc(prof.name)}</span> ${prof.isPrivate ? `<span title="Private profile" class="cm-chip">${ic("lock")} Private</span>` : ""}</h1>
         ${canSee && stats && stats.bio ? `<p class="cm-bio">${esc(stats.bio)}</p>` : ""}
         <div class="cm-chips">
-          ${rank ? `<span class="cm-chip gold">${ic("trophy")} Rank #${rank}</span>` : ""}
+          <span id="rk" style="display:contents">${rank ? `<span class="cm-chip gold">${ic("trophy")} Rank #${rank}</span>` : ""}</span>
           ${canSee && stats && stats.course ? `<span class="cm-chip">${ic("cap")} ${esc(stats.course)}</span>` : ""}
           ${!isMe && theirRel && theirRel.status === "accepted" ? `<span class="cm-chip">Follows you</span>` : ""}
           ${isMe && prof.hideRank ? `<span class="cm-chip">${ic("eye-off")} Rank hidden from others</span>` : ""}
-          <button class="cm-chip" data-act="copyid" title="Copy Student ID" style="cursor:pointer;color:inherit;font-family:inherit">${ic("copy")} ID ${C.fmtCode(code)}</button>
+          <button class="cm-chip" data-act="copyid" title="Copy username" style="cursor:pointer;color:inherit;font-family:inherit">${ic("copy")} ${C.fmtCode(code)}</button>
         </div>
       </div>
       <div class="cm-actions">${actionsHtml()}</div>
@@ -167,7 +207,7 @@
     else if (tab === "reels") postsTab("reel");
     else if (tab === "feed") feedTab();
     else if (tab === "find") findTab();
-    else if (tab === "followers") { p.innerHTML = `<div class="cm-list" id="lst"></div>`; peopleList($("lst"), fers, "follower", isMe ? "No followers yet. Share your Student ID with friends!" : "No followers yet."); }
+    else if (tab === "followers") { p.innerHTML = `<div class="cm-list" id="lst"></div>`; peopleList($("lst"), fers, "follower", isMe ? "No followers yet. Share your username with friends!" : "No followers yet."); }
     else if (tab === "following") { p.innerHTML = `<div class="cm-list" id="lst"></div>`; peopleList($("lst"), fing, "target", isMe ? "You are not following anyone yet. Try the Find people tab." : "Not following anyone yet."); }
     else if (tab === "requests") requestsTab();
   }
@@ -197,11 +237,11 @@
       <p class="cm-sub" style="margin:12px 0 0;font-size:.85rem">Rank: <b>${rankTxt}</b>${stats && stats.points ? " · Points: <b>" + stats.points + "</b> · Average: <b>" + stats.avgPercent + "%</b>" : ""}</p></div>`;
     if (isMe) {
       const vals = tests.slice().reverse().map(r => +r.percent || 0);
-      out += `<div class="panels"><div class="panel"><h2>${ic("trend")} Progress</h2>${vals.length > 1 ? spark(vals) + `<p class="cm-sub" style="margin:6px 0 0;font-size:.82rem">Your last ${vals.length} test scores (%)</p>` : `<p class="cm-sub" style="margin:0">Take at least 2 tests to see your progress chart.</p>`}</div>
-        <div class="panel"><h2>${ic("notes")} Recent tests</h2>${tests.length ? `<div class="cm-list">${tests.slice(0, 5).map(r => `<div class="cm-row"><div class="grow"><b data-keep>${esc(r.testTitle || "Test")}</b><small>${dateTxt(C.A.toMs(r.createdAt) || Date.now())}${r.rank ? " · Rank #" + r.rank + " of " + r.rankTotal : ""}</small></div><div class="cm-pts">${Math.round(+r.percent || 0)}%<small>${r.score}/${r.total}</small></div></div>`).join("")}</div>` : `<p class="cm-sub" style="margin:0">No tests yet. <a href="tests.html" style="color:var(--gold2)">Take one now →</a></p>`}</div></div>
-        <div class="panel"><h2>${ic("link")} Your Student ID</h2>
-          <p class="cm-sub" style="margin-bottom:12px">Friends can type this ID in <b>Find people</b> (or open your link) to reach your profile, follow you and message you, even if your profile is private.</p>
-          <div class="cm-idbox"><code>${C.fmtCode(code)}</code><button class="btn btn-ghost" data-act="copyid">${ic("copy")} Copy ID</button><button class="btn btn-ghost" data-act="copylink">${ic("link")} Copy profile link</button></div></div>`;
+      out += extrasPending ? `<div class="panels"><div class="panel"><div class="skel" style="height:110px"></div></div><div class="panel"><div class="skel" style="height:110px"></div></div></div>` : `<div class="panels"><div class="panel"><h2>${ic("trend")} Progress</h2>${vals.length > 1 ? spark(vals) + `<p class="cm-sub" style="margin:6px 0 0;font-size:.82rem">Your last ${vals.length} test scores (%)</p>` : `<p class="cm-sub" style="margin:0">Take at least 2 tests to see your progress chart.</p>`}</div>
+        <div class="panel"><h2>${ic("notes")} Recent tests</h2>${tests.length ? `<div class="cm-list">${tests.slice(0, 5).map(r => `<div class="cm-row"><div class="grow"><b data-keep>${esc(r.testTitle || "Test")}</b><small>${dateTxt(C.A.toMs(r.createdAt) || Date.now())}${r.rank ? " · Rank #" + r.rank + " of " + r.rankTotal : ""}</small></div><div class="cm-pts">${Math.round(+r.percent || 0)}%<small>${r.score}/${r.total}</small></div></div>`).join("")}</div>` : `<p class="cm-sub" style="margin:0">No tests yet. <a href="tests.html" style="color:var(--gold2)">Take one now →</a></p>`}</div></div>`;
+      out += `<div class="panel"><h2>${ic("link")} Your Username</h2>
+          <p class="cm-sub" style="margin-bottom:12px">Friends can type this username in <b>Find people</b> (or open your link) to reach your profile, follow you and message you, even if your profile is private.</p>
+          <div class="cm-idbox"><code>${C.fmtCode(code)}</code><button class="btn btn-ghost" data-act="copyid">${ic("copy")} Copy username</button><button class="btn btn-ghost" data-act="copylink">${ic("link")} Copy profile link</button></div></div>`;
     }
     return out;
   }
@@ -303,10 +343,10 @@
     });
   }
 
-  /* ---------- find people (name or Student ID) ---------- */
+  /* ---------- find people (name or username) ---------- */
   function findTab() {
-    $("panel").innerHTML = `<input class="cm-search" id="q" type="search" placeholder="Search by name or Student ID (e.g. ${C.fmtCode(prof.code || C.studentCode(me.uid))})" maxlength="40" autocomplete="off">
-      <p class="cm-sub" style="font-size:.82rem;margin:8px 0 12px">Name search shows public profiles. Private profiles can only be found with their exact Student ID.</p>
+    $("panel").innerHTML = `<input class="cm-search" id="q" type="search" placeholder="Search by name or username (e.g. ${C.fmtCode(prof.code || C.studentCode(me.uid))})" maxlength="40" autocomplete="off">
+      <p class="cm-sub" style="font-size:.82rem;margin:8px 0 12px">Name search shows public profiles. Private profiles can only be found with their exact username.</p>
       <div id="found" class="cm-list"></div>
       <h3 style="margin:24px 0 10px">Suggested for you</h3><div id="sugg" class="cm-list"><div class="skel"></div></div>`;
     let timer;
@@ -317,7 +357,7 @@
         if (q.trim().length < 2) { $("found").innerHTML = ""; return; }
         try {
           const res = (await C.searchStudents(q)).slice(0, 30);
-          $("found").innerHTML = res.length ? res.map(p => personRow(p, p.byId ? "Found by Student ID" : "")).join("") : `<div class="empty">No student found. Check the spelling or the Student ID.</div>`;
+          $("found").innerHTML = res.length ? res.map(p => personRow(p, p.byId ? "Found by username" : "")).join("") : `<div class="empty">No student found. Check the spelling or the username.</div>`;
         } catch (e) { $("found").innerHTML = `<div class="empty">${esc(C.errText(e))}</div>`; }
       }, 350);
     });
@@ -331,7 +371,7 @@
       const same = myCourse ? pool.filter(r => C.sameCourse(r.course, myCourse)) : [];
       const ids = [...same, ...pool.filter(r => !same.includes(r))].slice(0, 6).map(r => r.uid);
       const ps = await C.profilesOf(ids);
-      if ($("sugg")) $("sugg").innerHTML = ps.length ? ps.map(p => personRow(p, myCourse && same.some(r => r.uid === p.id) ? "Same course as you" : "Top student")).join("") : `<div class="empty">No suggestions yet. Search by name or Student ID above.</div>`;
+      if ($("sugg")) $("sugg").innerHTML = ps.length ? ps.map(p => personRow(p, myCourse && same.some(r => r.uid === p.id) ? "Same course as you" : "Top student")).join("") : `<div class="empty">No suggestions yet. Search by name or username above.</div>`;
     } catch (e) { if ($("sugg")) $("sugg").innerHTML = `<div class="empty">${esc(C.errText(e))}</div>`; }
   }
 
@@ -420,7 +460,7 @@
     try {
       if (act === "menu") pop.classList.toggle("open");
       else if (act === "edit") openEdit(false);
-      else if (act === "copyid") copy(C.fmtCode(prof.code || C.studentCode(uid)), "Student ID copied");
+      else if (act === "copyid") copy(C.fmtCode(prof.code || C.studentCode(uid)), "Username copied");
       else if (act === "copylink") copy(C.profileLink(prof.code || C.studentCode(uid)), "Profile link copied");
       else if (act === "follow") { b.disabled = true; const st = await C.follow(me.uid, myProf, uid, prof); C.toast(st === "pending" ? "Request sent" : "You are now following " + prof.name, 2500); await load(); }
       else if (act === "unfollow") { b.disabled = true; await C.unfollow(me.uid, uid); await load(); }
@@ -462,10 +502,11 @@
     me = user;
     if (demo || C.A.isDemo()) { $("app").innerHTML = `<div class="panel cm-lock"><div class="big">${ic("plug")}</div><h2>Real account needed</h2><p class="cm-sub">The community works only with a real Firebase account (not demo mode).</p></div>`; return; }
     try {
-      const r = await C.ensureMyProfile(user);
+      wantedCode = params.get("c") || params.get("user") || "";
+      // my own profile and (if a username link was opened) the lookup run together
+      const [r, found] = await Promise.all([C.ensureMyProfile(user), wantedCode ? C.findByCode(wantedCode) : null]);
       myProf = r.profile;
-      const c = params.get("c");
-      if (c) { const found = await C.findByCode(c); uid = found.length ? found[0].id : "__none__"; }
+      if (wantedCode) uid = found.length ? found[0].id : "__none__";
       else uid = params.get("u") || user.uid;
       isMe = uid === user.uid;
       await load();
