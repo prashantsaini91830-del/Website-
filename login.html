@@ -4,10 +4,10 @@
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1.0">
 <title>Sign In | Gyaan Hub</title>
-<link rel="stylesheet" href="style.css?v=12">
-<script src="site-config.js?v=12"></script>
-<script src="theme.js?v=12"></script>
-<script src="icons.js?v=12"></script>
+<link rel="stylesheet" href="style.css?v=13">
+<script src="site-config.js?v=13"></script>
+<script src="theme.js?v=13"></script>
+<script src="icons.js?v=13"></script>
 </head>
 <body>
 <div class="auth-wrap">
@@ -43,12 +43,12 @@
   });
 </script>
 <script type="module">
-  import { setupLogin } from "./auth.js?v=12";
+  import { setupLogin } from "./auth.js?v=13";
   setupLogin();
   const why = new URLSearchParams(location.search).get("reason");
   const texts = { revoked: "You were signed out because the account was logged out from all devices.", removed: "This device was logged out from another device.", all: "You were signed out from all devices.", deleted: "Your account and its data were deleted." };
   if (why && texts[why]) { const m = document.getElementById("msg"); m.className = "msg ok"; m.textContent = texts[why]; }
 </script>
-<script type="module" src="layout.js?v=12"></script>
+<script type="module" src="layout.js?v=13"></script>
 </body>
 </html>

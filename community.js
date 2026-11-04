@@ -1,8 +1,8 @@
 // Gyaan Hub - Student Community (profiles, follow, rank, messages, block / report)
 // Uses the SAME Firebase project and helpers as the rest of the site (auth.js). No new keys, no new services.
-import * as A from "./auth.js?v=12";
-import { squareAvatar } from "./media.js?v=12";
-import * as F from "./files.js?v=12";
+import * as A from "./auth.js?v=13";
+import { squareAvatar } from "./media.js?v=13";
+import * as F from "./files.js?v=13";
 
 export { A, squareAvatar, F };
 export const esc = s => String(s ?? "").replace(/[&<>"']/g, c => ({ "&": "&amp;", "<": "&lt;", ">": "&gt;", '"': "&quot;", "'": "&#39;" }[c]));

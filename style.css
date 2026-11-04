@@ -682,3 +682,20 @@ html.light .cm-file{background:rgba(0,0,0,.06)}
 .cm-mf{display:block;color:var(--gold2);font-size:.76rem;margin-top:2px}
 .cm-mf:empty{display:none}
 .cm-modal:has(.rl-view) .cm-card{max-height:96vh}
+
+
+/* ---- v13: bottom tab bar (phones) + roomier profile layout ---- */
+.tabbar{display:none}
+@media(max-width:760px){
+  body.has-tabbar{padding-bottom:calc(68px + env(safe-area-inset-bottom))}
+  .tabbar{display:grid;grid-template-columns:repeat(5,1fr);position:fixed;left:0;right:0;bottom:0;z-index:60;background:rgba(10,14,32,.92);backdrop-filter:blur(16px);border-top:1px solid var(--border);padding:6px 4px calc(6px + env(safe-area-inset-bottom))}
+  .tabbar a{display:flex;flex-direction:column;align-items:center;gap:2px;padding:6px 2px;border-radius:12px;color:var(--muted);font-size:.68rem;font-weight:600;-webkit-tap-highlight-color:transparent}
+  .tabbar a em{font-style:normal}
+  .tabbar a .vi svg{width:23px;height:23px}
+  .tabbar a.active{color:var(--gold2)}
+  .tabbar a.active .vi svg{stroke-width:2.2}
+  .cm-head{padding:22px 18px}
+  .cm-actions .btn{width:100%}
+  .rl-tile{border-radius:10px}
+}
+a.rl-tile{display:block}

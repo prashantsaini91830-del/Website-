@@ -9,15 +9,15 @@
 <link rel="modulepreload" href="https://www.gstatic.com/firebasejs/10.14.1/firebase-app.js">
 <link rel="modulepreload" href="https://www.gstatic.com/firebasejs/10.14.1/firebase-auth.js">
 <link rel="modulepreload" href="https://www.gstatic.com/firebasejs/10.14.1/firebase-firestore.js">
-<link rel="modulepreload" href="auth.js?v=12">
-<link rel="modulepreload" href="community.js?v=12">
-<link rel="modulepreload" href="media.js?v=12">
-<link rel="modulepreload" href="files.js?v=12">
-<link rel="modulepreload" href="player-utils.js?v=12">
-<link rel="stylesheet" href="style.css?v=12">
-<script src="site-config.js?v=12"></script>
-<script src="theme.js?v=12"></script>
-<script src="icons.js?v=12"></script>
+<link rel="modulepreload" href="auth.js?v=13">
+<link rel="modulepreload" href="community.js?v=13">
+<link rel="modulepreload" href="media.js?v=13">
+<link rel="modulepreload" href="files.js?v=13">
+<link rel="modulepreload" href="player-utils.js?v=13">
+<link rel="stylesheet" href="style.css?v=13">
+<script src="site-config.js?v=13"></script>
+<script src="theme.js?v=13"></script>
+<script src="icons.js?v=13"></script>
 </head>
 <body>
 <header class="nav">
@@ -35,9 +35,9 @@
 </main>
 
 <script type="module">
-  import { protectPage } from "./auth.js?v=12";
-  import * as C from "./community.js?v=12";
-  import { initLightbox } from "./media.js?v=12";
+  import { protectPage } from "./auth.js?v=13";
+  import * as C from "./community.js?v=13";
+  import { initLightbox } from "./media.js?v=13";
   initLightbox();
   const $ = id => document.getElementById(id);
   const { esc } = C;
@@ -376,7 +376,7 @@
     if (!box.isConnected) return;
     rows.forEach((r, i) => { postMap[r.id] = { ...r, likes: likes[i] }; });
     box.className = "rl-grid";
-    box.innerHTML = rows.map((r, i) => `<button class="rl-tile" data-act="openreel" data-id="${esc(r.id)}" data-pm="${esc(r.id)}" aria-label="Open reel"><span class="rl-play">${ic("film")}</span><span class="rl-likes">${ic("heart")} ${likes[i].length}</span></button>`).join("");
+    box.innerHTML = rows.map((r, i) => `<a class="rl-tile" href="reels.html?reel=${encodeURIComponent(r.id)}" data-pm="${esc(r.id)}" aria-label="Watch reel"><span class="rl-play">${ic("film")}</span><span class="rl-likes">${ic("heart")} ${likes[i].length}</span></a>`).join("");
     rows.forEach(r => {
       const el = box.querySelector(`[data-pm="${CSS.escape(r.id)}"]`); if (!el || !r.media) return;
       C.F.fileUrl(r.media, { type: "post" }).then(url => { el.insertAdjacentHTML("afterbegin", `<video muted playsinline preload="metadata" src="${esc(url)}#t=0.1"></video>`); }).catch(() => {});
@@ -384,7 +384,7 @@
   }
   async function postsTab(kind) {
     const el = $("panel");
-    const head = isMe ? `<div class="pp-new"><button class="btn btn-gold" data-act="newpost" data-kind="${kind}">${ic(kind === "reel" ? "film" : "plus")} New ${kind}</button><small>${kind === "reel" ? "Short videos, up to " + C.F.MAX_REEL_SECONDS + " seconds." : "Share a photo, a video or just a thought."}</small></div>` : "";
+    const head = isMe ? `<div class="pp-new"><button class="btn btn-gold" data-act="newpost" data-kind="${kind}">${ic(kind === "reel" ? "film" : "plus")} New ${kind}</button>${kind === "reel" ? `<a class="btn btn-ghost" href="reels.html">${ic("film")} Watch reels</a>` : ""}<small>${kind === "reel" ? "Short videos, up to " + C.F.MAX_REEL_SECONDS + " seconds." : "Share a photo, a video or just a thought."}</small></div>` : "";
     el.innerHTML = `${head}<div id="plist" class="pp-list"><div class="skel"></div></div>`;
     try { const rows = await C.listPosts(uid, kind); if (kind === "reel") { await reelsGrid($("plist"), rows, isMe ? `You have no reels yet. Tap <b>New reel</b> to add one.` : "No reels yet."); return; } await paintPosts($("plist"), rows, isMe ? `You have no ${kind}s yet. Tap <b>New ${kind}</b> to add one.` : `No ${kind}s yet.`); }
     catch (e) { const b = $("plist"); if (b) b.innerHTML = `<div class="empty">${esc(C.errText(e))}</div>`; }
@@ -650,6 +650,6 @@
     }
   });
 </script>
-<script type="module" src="layout.js?v=12"></script>
+<script type="module" src="layout.js?v=13"></script>
 </body>
 </html>

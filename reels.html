@@ -1,0 +1,346 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0, viewport-fit=cover">
+<title>Reels | Gyaan Hub</title>
+<link rel="preconnect" href="https://www.gstatic.com" crossorigin>
+<link rel="preconnect" href="https://firestore.googleapis.com" crossorigin>
+<link rel="modulepreload" href="https://www.gstatic.com/firebasejs/10.14.1/firebase-app.js">
+<link rel="modulepreload" href="https://www.gstatic.com/firebasejs/10.14.1/firebase-auth.js">
+<link rel="modulepreload" href="https://www.gstatic.com/firebasejs/10.14.1/firebase-firestore.js">
+<link rel="modulepreload" href="auth.js?v=13">
+<link rel="modulepreload" href="community.js?v=13">
+<link rel="modulepreload" href="files.js?v=13">
+<link rel="stylesheet" href="style.css?v=13">
+<script src="site-config.js?v=13"></script>
+<script src="theme.js?v=13"></script>
+<script src="icons.js?v=13"></script>
+<style>
+  html,body{height:100%;overflow:hidden;background:#000}
+  body{background-image:none}
+  #rv{position:fixed;inset:0;background:#000;display:flex;justify-content:center}
+  #feed{position:relative;width:100%;max-width:480px;height:100%;overflow-y:scroll;scroll-snap-type:y mandatory;scrollbar-width:none;overscroll-behavior:contain;scroll-behavior:auto}
+  #feed::-webkit-scrollbar{display:none}
+  .rv-item{position:relative;width:100%;height:100vh;height:100dvh;scroll-snap-align:start;scroll-snap-stop:always;background:#000;overflow:hidden}
+  .rv-item video{position:absolute;inset:0;width:100%;height:100%;object-fit:cover;background:#000}
+  .rv-shade{position:absolute;inset:0;pointer-events:none;background:linear-gradient(180deg,rgba(0,0,0,.45) 0,transparent 18%,transparent 55%,rgba(0,0,0,.78) 100%)}
+  .rv-tap{position:absolute;inset:0;z-index:1;background:none;border:0;width:100%;cursor:pointer;-webkit-tap-highlight-color:transparent}
+  .rv-state{position:absolute;left:50%;top:50%;z-index:2;width:76px;height:76px;margin:-38px 0 0 -38px;border-radius:50%;background:rgba(0,0,0,.5);display:grid;place-items:center;color:#fff;opacity:0;transform:scale(.7);pointer-events:none;transition:.25s}
+  .rv-state.show{opacity:1;transform:scale(1)}
+  .rv-state .vi svg{width:34px;height:34px;fill:#fff}
+  .rv-heart{position:absolute;z-index:3;width:90px;height:90px;margin:-45px 0 0 -45px;pointer-events:none;color:#ff5e7a;animation:rvHeart .8s ease-out forwards}
+  .rv-heart .vi svg{width:90px;height:90px;fill:currentColor;stroke:currentColor}
+  @keyframes rvHeart{0%{transform:scale(.3);opacity:0}25%{transform:scale(1.15);opacity:1}100%{transform:scale(1) translateY(-40px);opacity:0}}
+  .rv-spin{position:absolute;left:50%;top:50%;width:34px;height:34px;margin:-17px 0 0 -17px;border:3px solid rgba(255,255,255,.25);border-top-color:#fff;border-radius:50%;animation:rvSpin .8s linear infinite;z-index:1;pointer-events:none}
+  @keyframes rvSpin{to{transform:rotate(360deg)}}
+  .rv-prog{position:absolute;left:0;right:0;bottom:calc(0px + env(safe-area-inset-bottom));height:3px;background:rgba(255,255,255,.25);z-index:4}
+  .rv-prog i{display:block;height:100%;width:0;background:#fff}
+  /* top bar */
+  .rv-top{position:fixed;top:0;left:50%;transform:translateX(-50%);width:100%;max-width:480px;z-index:20;display:flex;align-items:center;justify-content:space-between;padding:calc(10px + env(safe-area-inset-top)) 12px 10px;pointer-events:none}
+  .rv-top>*{pointer-events:auto}
+  .rv-ib{width:40px;height:40px;border-radius:50%;border:0;background:rgba(0,0,0,.4);color:#fff;display:grid;place-items:center;cursor:pointer;backdrop-filter:blur(6px);-webkit-tap-highlight-color:transparent}
+  .rv-ib .vi svg{width:22px;height:22px}
+  .rv-seg{display:flex;gap:4px;background:rgba(0,0,0,.4);backdrop-filter:blur(6px);border-radius:999px;padding:4px}
+  .rv-seg button{border:0;background:none;color:rgba(255,255,255,.75);font:inherit;font-weight:600;font-size:.88rem;padding:6px 16px;border-radius:999px;cursor:pointer}
+  .rv-seg button.on{background:#fff;color:#111}
+  /* right action rail */
+  .rv-rail{position:absolute;right:10px;bottom:calc(86px + env(safe-area-inset-bottom));z-index:5;display:flex;flex-direction:column;align-items:center;gap:16px}
+  .rv-btn{display:flex;flex-direction:column;align-items:center;gap:3px;background:none;border:0;color:#fff;font:inherit;font-size:.78rem;font-weight:600;cursor:pointer;text-shadow:0 1px 4px rgba(0,0,0,.7);-webkit-tap-highlight-color:transparent}
+  .rv-btn .vi svg{width:30px;height:30px;filter:drop-shadow(0 1px 4px rgba(0,0,0,.6));transition:transform .2s}
+  .rv-btn:active .vi svg{transform:scale(.85)}
+  .rv-btn.on.like{color:#ff5e7a}
+  .rv-btn.on .vi svg{fill:currentColor}
+  .rv-btn.on:not(.like){color:var(--gold2)}
+  /* bottom info */
+  .rv-info{position:absolute;left:0;right:76px;bottom:calc(18px + env(safe-area-inset-bottom));z-index:5;padding:0 14px;color:#fff;text-shadow:0 1px 6px rgba(0,0,0,.7)}
+  .rv-by{display:flex;align-items:center;gap:10px;margin-bottom:8px}
+  .rv-by .avatar{width:38px;height:38px;border:2px solid #fff}
+  .rv-by b{font-weight:700;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
+  .rv-fol{border:1px solid #fff;background:none;color:#fff;border-radius:8px;font:inherit;font-weight:600;font-size:.8rem;padding:4px 12px;cursor:pointer}
+  .rv-fol[disabled]{opacity:.6}
+  .rv-cap{font-size:.92rem;line-height:1.4;display:-webkit-box;-webkit-line-clamp:2;-webkit-box-orient:vertical;overflow:hidden;white-space:pre-wrap;word-break:break-word;cursor:pointer}
+  .rv-cap.open{-webkit-line-clamp:unset;max-height:30vh;overflow:auto;display:block}
+  /* empty / loading */
+  .rv-msg{position:absolute;inset:0;display:grid;place-items:center;text-align:center;color:#cfd3e8;padding:30px;gap:12px;align-content:center;z-index:2}
+  .rv-msg h2{color:#fff}
+  .rv-msg .btn{justify-self:center}
+  /* comments sheet */
+  .rv-sheet-bg{position:fixed;inset:0;z-index:40;background:rgba(0,0,0,.55);opacity:0;pointer-events:none;transition:.25s}
+  .rv-sheet-bg.open{opacity:1;pointer-events:auto}
+  .rv-sheet{position:fixed;left:50%;bottom:0;transform:translate(-50%,100%);width:100%;max-width:480px;height:68vh;height:68dvh;z-index:41;background:#12172e;border-radius:20px 20px 0 0;display:flex;flex-direction:column;transition:transform .3s;padding-bottom:env(safe-area-inset-bottom)}
+  .rv-sheet.open{transform:translate(-50%,0)}
+  .rv-sheet header{display:flex;align-items:center;justify-content:space-between;padding:14px 16px;border-bottom:1px solid var(--border);font-weight:700}
+  .rv-sheet .rl-list{flex:1;max-height:none;padding:12px 16px}
+  .rv-sheet .rl-send{padding:10px 14px 12px;border-top:1px solid var(--border)}
+  @media (min-width:700px){ #feed{border-left:1px solid #1b1f33;border-right:1px solid #1b1f33} }
+</style>
+</head>
+<body>
+<div id="rv">
+  <div id="feed"><div class="rv-msg"><div class="skel" style="width:60px;height:60px;border-radius:50%"></div><p>Loading reels…</p></div></div>
+</div>
+<div class="rv-top">
+  <button class="rv-ib" id="back" aria-label="Back"><span id="back-i"></span></button>
+  <div class="rv-seg" id="seg"><button data-s="explore" class="on">Explore</button><button data-s="following">Following</button></div>
+  <div style="display:flex;gap:8px">
+    <button class="rv-ib" id="mute" aria-label="Sound"><span id="mute-i"></span></button>
+    <a class="rv-ib" href="profile.html?tab=reels" aria-label="New reel" id="newreel"></a>
+  </div>
+</div>
+<div class="rv-sheet-bg" id="sbg"></div>
+<div class="rv-sheet" id="sheet" role="dialog" aria-label="Comments">
+  <header><span id="sh-t">Comments</span><button class="rv-ib" id="sh-x" aria-label="Close" style="background:rgba(255,255,255,.1)"></button></header>
+  <div class="rl-list" id="rl-list"></div>
+  <div class="rl-send"><input id="rl-ci" maxlength="300" placeholder="Add a comment..." autocomplete="off"><button class="btn btn-gold" id="csend">Post</button></div>
+</div>
+
+<script type="module">
+  import { protectPage } from "./auth.js?v=13";
+  import * as C from "./community.js?v=13";
+  const $ = id => document.getElementById(id);
+  const { esc } = C;
+  const ic = (n, c) => window.ic ? window.ic(n, c) : "";
+  const params = new URLSearchParams(location.search);
+  const feed = $("feed");
+  let me, segment = "explore", items = [], active = -1, savedSet = new Set(), muted = true, followRows = new Map(), cache = {};
+  const meta = {};            // postId -> { likes, cm, rp }
+  const videoUrl = {};        // postId -> url promise
+
+  /* ---------- small icon helpers (fallbacks if an icon is missing in icons.js) ---------- */
+  const icon = (n, fb) => { const h = ic(n); return h || fb; };
+  const iPlay = `<span class="vi"><svg viewBox="0 0 24 24"><path d="M7 4l13 8-13 8z"/></svg></span>`;
+  const iPause = `<span class="vi"><svg viewBox="0 0 24 24"><path d="M6 4h4v16H6zM14 4h4v16h-4z"/></svg></span>`;
+  const iMuted = `<span class="vi"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M4 9v6h4l5 4V5L8 9z" fill="currentColor"/><path d="M17 9l5 6M22 9l-5 6"/></svg></span>`;
+  const iVol = `<span class="vi"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M4 9v6h4l5 4V5L8 9z" fill="currentColor"/><path d="M16.5 8.5a5 5 0 0 1 0 7M19 6a8.5 8.5 0 0 1 0 12"/></svg></span>`;
+  const iBack = `<span class="vi"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round"><path d="M15 5l-7 7 7 7"/></svg></span>`;
+  $("back-i").innerHTML = iBack;
+  $("sh-x").innerHTML = icon("x", "✕");
+  $("newreel").innerHTML = icon("plus", "+");
+  const paintMute = () => { $("mute-i").innerHTML = muted ? iMuted : iVol; };
+  paintMute();
+  $("back").onclick = () => { if (history.length > 1 && document.referrer.startsWith(location.origin)) history.back(); else location.href = "profile.html?tab=reels"; };
+  $("mute").onclick = () => { muted = !muted; paintMute(); document.querySelectorAll("#feed video").forEach(v => v.muted = muted); };
+
+  /* ---------- data ---------- */
+  async function loadFollowing() {
+    const rows = await C.A.fsWhere("follows", [["follower", "==", me.uid]]).catch(() => []);
+    followRows = new Map(rows.map(f => [f.target, f]));
+  }
+  async function candidateUids(seg) {
+    const ids = new Set([me.uid]);
+    followRows.forEach((f, u) => { if (f.status === "accepted") ids.add(u); });
+    if (seg === "explore") {
+      try { (await C.getLeaderboard()).slice(0, 40).forEach(r => r.uid && ids.add(r.uid)); } catch (e) {}
+    }
+    return [...ids];
+  }
+  async function fetchReels(seg) {
+    const uids = await candidateUids(seg);
+    const lists = await Promise.all(uids.map(u => C.listPosts(u, "reel").then(r => r.slice(0, 8)).catch(() => [])));
+    let rows = lists.flat().filter(p => p.media && p.media.kind === "video");
+    // newest first, but mix authors so one person does not fill the whole feed
+    rows.sort((a, b) => (b.ts || 0) - (a.ts || 0));
+    return rows.slice(0, 60);
+  }
+
+  /* ---------- rendering ---------- */
+  function itemHtml(p, a, i) {
+    const mine = p.uid === me.uid, id = esc(p.id);
+    const canFollow = !mine && !followRows.has(p.uid);
+    return `<section class="rv-item" data-i="${i}" data-id="${id}">
+      <video playsinline loop preload="none" ${muted ? "muted" : ""}></video>
+      <div class="rv-spin"></div>
+      <div class="rv-shade"></div>
+      <button class="rv-tap" data-act="tap" aria-label="Play or pause"></button>
+      <div class="rv-state" data-state></div>
+      <div class="rv-rail">
+        <button class="rv-btn like" data-act="like" aria-label="Like">${ic("heart")}<span data-n="like">0</span></button>
+        <button class="rv-btn" data-act="comment" aria-label="Comments">${ic("chat")}<span data-n="cm">0</span></button>
+        <button class="rv-btn" data-act="repost" aria-label="Repost">${ic("repost")}<span data-n="rp">0</span></button>
+        <button class="rv-btn" data-act="share" aria-label="Share">${ic("share")}<span>Share</span></button>
+        <button class="rv-btn" data-act="save" aria-label="Save">${ic("bookmark")}<span>Save</span></button>
+      </div>
+      <div class="rv-info">
+        <div class="rv-by"><a href="profile.html?u=${encodeURIComponent(p.uid)}">${C.avatarHtml(a)}</a>
+          <a href="profile.html?u=${encodeURIComponent(p.uid)}"><b data-keep>${esc(a.name || "Student")}</b></a>
+          ${canFollow ? `<button class="rv-fol" data-act="follow" data-u="${esc(p.uid)}">Follow</button>` : ""}</div>
+        ${p.caption ? `<div class="rv-cap" data-act="cap" data-keep>${esc(p.caption)}</div>` : ""}
+      </div>
+      <div class="rv-prog"><i></i></div>
+    </section>`;
+  }
+  async function build(seg) {
+    segment = seg;
+    document.querySelectorAll("#seg button").forEach(b => b.classList.toggle("on", b.dataset.s === seg));
+    feed.innerHTML = `<div class="rv-msg"><div class="skel" style="width:60px;height:60px;border-radius:50%"></div><p>Loading reels…</p></div>`;
+    active = -1;
+    let rows = [];
+    try { rows = await fetchReels(seg); } catch (e) { feed.innerHTML = `<div class="rv-msg"><h2>Could not load reels</h2><p>${esc(C.errText(e))}</p></div>`; return; }
+    const want = params.get("reel");
+    if (want && seg === "explore") {
+      let p = rows.find(r => r.id === want) || await C.A.fsGetPath(["posts", want]).catch(() => null);
+      if (p && p.media) rows = [p, ...rows.filter(r => r.id !== p.id)];
+    }
+    items = rows;
+    if (!rows.length) {
+      feed.innerHTML = `<div class="rv-msg"><h2>${seg === "following" ? "No reels from people you follow" : "No reels yet"}</h2><p>${seg === "following" ? "Follow students from the Find people tab, or switch to Explore." : "Be the first, upload a short video."}</p><a class="btn btn-gold" href="profile.html?tab=reels">${ic("plus")} New reel</a></div>`;
+      return;
+    }
+    const authors = await C.profilesOf([...new Set(rows.map(r => r.uid))]);
+    const am = Object.fromEntries(authors.map(a => [a.id, a]));
+    savedSet = await C.savedIds(me.uid);
+    feed.innerHTML = rows.map((r, i) => itemHtml(r, am[r.uid] || { name: "Student" }, i)).join("");
+    feed.scrollTop = 0;
+    watcher.disconnect();
+    feed.querySelectorAll(".rv-item").forEach(el => watcher.observe(el));
+  }
+
+  /* ---------- playback: only the visible reel plays, neighbours are pre-loaded ---------- */
+  function ensureSrc(i) {
+    const el = feed.querySelector(`.rv-item[data-i="${i}"]`); if (!el) return;
+    const v = el.querySelector("video"); if (!v || v.dataset.src) return;
+    v.dataset.src = "1";
+    const p = items[i];
+    C.F.fileUrl(p.media, { type: "post" }).then(url => {
+      v.src = url; v.preload = i === active ? "auto" : "metadata";
+      v.addEventListener("loadeddata", () => { const s = el.querySelector(".rv-spin"); if (s) s.remove(); }, { once: true });
+      v.addEventListener("playing", () => { const s = el.querySelector(".rv-spin"); if (s) s.remove(); }, { once: true });
+      v.addEventListener("timeupdate", () => { const b = el.querySelector(".rv-prog i"); if (b && v.duration) b.style.width = (v.currentTime / v.duration * 100) + "%"; });
+      if (i === active) play(v);
+    }).catch(() => { const s = el.querySelector(".rv-spin"); if (s) s.outerHTML = `<div class="rv-msg" style="z-index:1"><p>This reel is not available.</p></div>`; });
+  }
+  function play(v) { v.muted = muted; const pr = v.play(); if (pr && pr.catch) pr.catch(() => { v.muted = true; muted = true; paintMute(); v.play().catch(() => {}); }); }
+  function setActive(i) {
+    if (i === active) return;
+    active = i;
+    feed.querySelectorAll(".rv-item video").forEach((v, k) => { if (k !== i) { v.pause(); } });
+    [i, i + 1, i - 1].forEach(k => { if (k >= 0 && k < items.length) ensureSrc(k); });
+    const el = feed.querySelector(`.rv-item[data-i="${i}"]`), v = el && el.querySelector("video");
+    if (v) { v.currentTime = 0; if (v.src) play(v); }
+    loadMeta(items[i].id);
+    // keep the address in sync so the link can be shared / reloaded
+    try { const u = new URL(location.href); u.searchParams.set("reel", items[i].id); history.replaceState(null, "", u); } catch (e) {}
+  }
+  const watcher = new IntersectionObserver(es => es.forEach(en => { if (en.isIntersecting && en.intersectionRatio >= .7) setActive(+en.target.dataset.i); }), { root: feed, threshold: [.7] });
+  document.addEventListener("visibilitychange", () => { const v = feed.querySelector(`.rv-item[data-i="${active}"] video`); if (!v) return; if (document.hidden) v.pause(); else play(v); });
+
+  /* ---------- per-reel numbers (loaded when the reel becomes active) ---------- */
+  async function loadMeta(id) {
+    if (!meta[id]) {
+      meta[id] = { likes: [], cm: [], rp: [], ready: false };
+      const p = items.find(x => x.id === id);
+      const [likes, cm, rp] = await Promise.all([C.likesOf(id), C.commentsOf(id), C.repostsOf(p.repostOf || id)]);
+      Object.assign(meta[id], { likes, cm, rp, ready: true });
+    }
+    paintMeta(id);
+  }
+  function paintMeta(id) {
+    const el = feed.querySelector(`.rv-item[data-id="${CSS.escape(id)}"]`), m = meta[id]; if (!el || !m) return;
+    el.querySelector('[data-act="like"]').classList.toggle("on", m.likes.includes(me.uid));
+    el.querySelector('[data-n="like"]').textContent = m.likes.length;
+    el.querySelector('[data-n="cm"]').textContent = m.cm.length;
+    el.querySelector('[data-n="rp"]').textContent = m.rp.length;
+    el.querySelector('[data-act="repost"]').classList.toggle("on", m.rp.includes(me.uid));
+    el.querySelector('[data-act="save"]').classList.toggle("on", savedSet.has(id));
+  }
+
+  /* ---------- actions ---------- */
+  const curItem = el => el.closest(".rv-item");
+  async function toggleLike(id) {
+    const m = meta[id] || (meta[id] = { likes: [], cm: [], rp: [] }), had = m.likes.includes(me.uid);
+    m.likes = had ? m.likes.filter(u => u !== me.uid) : [...m.likes, me.uid]; paintMeta(id);          // instant feedback
+    try { await (had ? C.unlikePost(id, me.uid) : C.likePost(id, me.uid)); }
+    catch (e) { m.likes = had ? [...m.likes, me.uid] : m.likes.filter(u => u !== me.uid); paintMeta(id); C.toast(C.errText(e), 3500); }
+  }
+  async function toggleRepost(id) {
+    const p = items.find(x => x.id === id), m = meta[id];
+    if (p.uid === me.uid && !p.repostOf) return C.toast("You cannot repost your own reel.", 2500);
+    try {
+      if (m.rp.includes(me.uid)) { await C.unrepost(me.uid, p); m.rp = m.rp.filter(u => u !== me.uid); C.toast("Repost removed", 2000); }
+      else { await C.repost(me.uid, p); m.rp.push(me.uid); C.toast("Reposted to your profile", 2500); }
+      paintMeta(id);
+    } catch (e) { C.toast(C.errText(e), 3500); }
+  }
+  async function toggleSave(id) {
+    try {
+      if (savedSet.has(id)) { await C.unsavePost(me.uid, id); savedSet.delete(id); C.toast("Removed from Saved", 2000); }
+      else { await C.savePost(me.uid, id); savedSet.add(id); C.toast("Saved", 2000); }
+      paintMeta(id);
+    } catch (e) { C.toast(C.errText(e), 3500); }
+  }
+  async function share(id) {
+    const p = items.find(x => x.id === id), link = new URL("reels.html?reel=" + encodeURIComponent(id), location.href).href;
+    if (navigator.share) { try { await navigator.share({ title: "Reel on Gyaan Hub", text: (p.caption || "").slice(0, 80), url: link }); return; } catch (e) { if (e && e.name === "AbortError") return; } }
+    try { await navigator.clipboard.writeText(link); C.toast("Link copied", 2000); } catch (e) { C.toast(link, 6000); }
+  }
+  function burst(el, x, y) {
+    const h = document.createElement("div"); h.className = "rv-heart"; h.innerHTML = ic("heart");
+    const r = el.getBoundingClientRect(); h.style.left = (x - r.left) + "px"; h.style.top = (y - r.top) + "px";
+    el.appendChild(h); setTimeout(() => h.remove(), 850);
+  }
+  function flash(el, html) { const s = el.querySelector("[data-state]"); s.innerHTML = html; s.classList.add("show"); setTimeout(() => s.classList.remove("show"), 420); }
+
+  // single tap = play / pause, double tap = like (like Instagram)
+  let lastTap = 0, tapT = null;
+  feed.addEventListener("click", async e => {
+    const b = e.target.closest("[data-act]"); if (!b) return;
+    const el = curItem(b), id = el.dataset.id, act = b.dataset.act;
+    if (act === "tap") {
+      const now = Date.now();
+      if (now - lastTap < 300) { clearTimeout(tapT); lastTap = 0; burst(el, e.clientX, e.clientY); if (!(meta[id] && meta[id].likes.includes(me.uid))) toggleLike(id); return; }
+      lastTap = now;
+      tapT = setTimeout(() => { const v = el.querySelector("video"); if (v.paused) { play(v); flash(el, iPlay); } else { v.pause(); flash(el, iPause); } }, 300);
+    }
+    else if (act === "like") toggleLike(id);
+    else if (act === "comment") openSheet(id);
+    else if (act === "repost") toggleRepost(id);
+    else if (act === "share") share(id);
+    else if (act === "save") toggleSave(id);
+    else if (act === "cap") b.classList.toggle("open");
+    else if (act === "follow") {
+      b.disabled = true;
+      try { const p = items.find(x => x.id === id); const st = await C.follow(me.uid, await C.getProfile(me.uid), p.uid, await C.getProfile(p.uid)); followRows.set(p.uid, { status: st }); document.querySelectorAll(`[data-act="follow"][data-u="${CSS.escape(p.uid)}"]`).forEach(x => x.remove()); C.toast(st === "pending" ? "Follow request sent" : "Following", 2000); }
+      catch (err) { b.disabled = false; C.toast(C.errText(err), 3500); }
+    }
+  });
+
+  /* ---------- comments sheet ---------- */
+  let sheetId = null;
+  async function drawComments() {
+    const list = $("rl-list"), m = meta[sheetId]; if (!m) return;
+    $("sh-t").textContent = "Comments" + (m.cm.length ? " (" + m.cm.length + ")" : "");
+    if (!m.cm.length) { list.innerHTML = `<div class="empty" style="padding:14px">No comments yet. Be the first.</div>`; return; }
+    const ps = await C.profilesOf([...new Set(m.cm.map(c => c.uid))]); const pm = Object.fromEntries(ps.map(x => [x.id, x]));
+    const p = items.find(x => x.id === sheetId);
+    list.innerHTML = m.cm.map(c => `<div class="rl-c"><a href="profile.html?u=${encodeURIComponent(c.uid)}">${C.avatarHtml(pm[c.uid] || { name: "Student" }, "sm")}</a><div class="grow"><b data-keep>${esc((pm[c.uid] || {}).name || "Student")}</b> <span data-keep>${esc(c.text)}</span></div>${c.uid === me.uid || p.uid === me.uid ? `<button class="cm-x2" data-cdel="${esc(c.id)}" aria-label="Delete comment">✕</button>` : ""}</div>`).join("");
+    list.scrollTop = list.scrollHeight;
+  }
+  async function openSheet(id) {
+    sheetId = id; await loadMeta(id);
+    $("sbg").classList.add("open"); $("sheet").classList.add("open"); drawComments();
+  }
+  const closeSheet = () => { $("sbg").classList.remove("open"); $("sheet").classList.remove("open"); sheetId = null; };
+  $("sbg").onclick = closeSheet; $("sh-x").onclick = closeSheet;
+  document.addEventListener("keydown", e => { if (e.key === "Escape") closeSheet(); if (e.key === "ArrowDown" || e.key === "ArrowUp") { if (!$("sheet").classList.contains("open") && document.activeElement.tagName !== "INPUT") { e.preventDefault(); feed.scrollBy({ top: (e.key === "ArrowDown" ? 1 : -1) * feed.clientHeight, behavior: "smooth" }); } } if (e.key === " " && document.activeElement.tagName !== "INPUT") { e.preventDefault(); const v = feed.querySelector(`.rv-item[data-i="${active}"] video`); if (v) v.paused ? play(v) : v.pause(); } if (e.key.toLowerCase() === "m" && document.activeElement.tagName !== "INPUT") $("mute").click(); });
+  async function sendComment() {
+    const i = $("rl-ci"); if (!sheetId || !i.value.trim()) return;
+    try { const c = await C.addComment(sheetId, me.uid, i.value); i.value = ""; meta[sheetId].cm.push(c); paintMeta(sheetId); drawComments(); }
+    catch (e) { C.toast(e.message || C.errText(e), 3000); }
+  }
+  $("csend").onclick = sendComment;
+  $("rl-ci").addEventListener("keydown", e => { if (e.key === "Enter") { e.preventDefault(); sendComment(); } });
+  $("rl-list").addEventListener("click", async e => {
+    const b = e.target.closest("[data-cdel]"); if (!b) return;
+    try { await C.deleteComment(sheetId, b.dataset.cdel); meta[sheetId].cm = meta[sheetId].cm.filter(c => c.id !== b.dataset.cdel); paintMeta(sheetId); drawComments(); } catch (err) { C.toast(C.errText(err), 3000); }
+  });
+  document.querySelectorAll("#seg button").forEach(b => b.onclick = () => { if (b.dataset.s !== segment) build(b.dataset.s); });
+
+  protectPage(async u => {
+    me = u;
+    await loadFollowing();
+    build("explore");
+  });
+</script>
+</body>
+</html>
