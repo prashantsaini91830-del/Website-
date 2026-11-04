@@ -68,13 +68,21 @@ service cloud.firestore {
     match /profiles/{uid} {                 // public card: name, avatar, privacy flags
       allow read: if signedIn();
       allow create, update: if (isOwner(uid)
-          && request.resource.data.keys().hasOnly(["name", "nameLc", "avatar", "isPrivate", "hideRank", "dm", "code", "updatedAt"])
+          && request.resource.data.keys().hasOnly(["name", "nameLc", "avatar", "isPrivate", "hideRank", "dm", "code", "username", "unameLog", "updatedAt"])
           && request.resource.data.name is string && request.resource.data.name.size() > 0 && request.resource.data.name.size() <= 40
           && request.resource.data.avatar.size() < 40000
           && request.resource.data.get("code", "").size() <= 8
+          && request.resource.data.get("unameLog", []).size() <= 5
+          && (!("username" in request.resource.data) || request.resource.data.username.matches("^[a-z0-9_.]{3,20}$"))
           && request.resource.data.dm in ["all", "followers", "none"])
         || isAdmin();
       allow delete: if isOwner(uid) || isAdmin();
+    }
+    match /usernames/{name} {               // one document per taken username (makes names unique)
+      allow read: if signedIn();
+      allow create: if signedIn() && request.resource.data.uid == request.auth.uid
+          && name.matches("^[a-z0-9_.]{3,20}$") && request.resource.data.keys().hasOnly(["uid", "updatedAt"]);
+      allow update, delete: if isOwner(resource.data.uid) || isAdmin();
     }
     match /profileStats/{uid} {             // bio, course, rank numbers: hidden from strangers when the profile is private
       allow read: if signedIn() && (resource == null || isOwner(uid) || resource.data.shown == true || isAccFollower(uid));
@@ -172,6 +180,17 @@ service cloud.firestore {
       match /likes/{u} {
         allow read: if signedIn();
         allow write: if signedIn() && request.auth.uid == u;
+      }
+      match /reposts/{u} {
+        allow read: if signedIn();
+        allow write: if signedIn() && request.auth.uid == u;
+      }
+      match /comments/{cid} {
+        allow read: if signedIn();
+        allow create: if signedIn() && request.resource.data.uid == request.auth.uid
+            && request.resource.data.text is string && request.resource.data.text.size() > 0 && request.resource.data.text.size() <= 300;
+        allow delete: if signedIn() && (resource.data.uid == request.auth.uid
+            || get(/databases/$(database)/documents/posts/$(pid)).data.uid == request.auth.uid || isAdmin());
       }
     }
     match /postFiles/{fid} {               // photo / video pieces of posts (used when Firebase Storage is not enabled)

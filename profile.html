@@ -9,15 +9,15 @@
 <link rel="modulepreload" href="https://www.gstatic.com/firebasejs/10.14.1/firebase-app.js">
 <link rel="modulepreload" href="https://www.gstatic.com/firebasejs/10.14.1/firebase-auth.js">
 <link rel="modulepreload" href="https://www.gstatic.com/firebasejs/10.14.1/firebase-firestore.js">
-<link rel="modulepreload" href="auth.js?v=10">
-<link rel="modulepreload" href="community.js?v=10">
-<link rel="modulepreload" href="media.js?v=10">
-<link rel="modulepreload" href="files.js?v=10">
-<link rel="modulepreload" href="player-utils.js?v=10">
-<link rel="stylesheet" href="style.css?v=10">
-<script src="site-config.js?v=10"></script>
-<script src="theme.js?v=10"></script>
-<script src="icons.js?v=10"></script>
+<link rel="modulepreload" href="auth.js?v=12">
+<link rel="modulepreload" href="community.js?v=12">
+<link rel="modulepreload" href="media.js?v=12">
+<link rel="modulepreload" href="files.js?v=12">
+<link rel="modulepreload" href="player-utils.js?v=12">
+<link rel="stylesheet" href="style.css?v=12">
+<script src="site-config.js?v=12"></script>
+<script src="theme.js?v=12"></script>
+<script src="icons.js?v=12"></script>
 </head>
 <body>
 <header class="nav">
@@ -35,16 +35,16 @@
 </main>
 
 <script type="module">
-  import { protectPage } from "./auth.js?v=10";
-  import * as C from "./community.js?v=10";
-  import { initLightbox } from "./media.js?v=10";
+  import { protectPage } from "./auth.js?v=12";
+  import * as C from "./community.js?v=12";
+  import { initLightbox } from "./media.js?v=12";
   initLightbox();
   const $ = id => document.getElementById(id);
   const { esc } = C;
   const ic = (n, c) => window.ic ? window.ic(n, c) : "";
   const params = new URLSearchParams(location.search);
   let me, myProf, prof, uid, isMe, rel, theirRel, blocked, stats, rank, fers, fing, msgOk, tests = [];
-  let myFollowing = new Map(), myFollowers = new Map(), tab = params.get("tab") || "overview", lbRows = null;
+  let myFollowing = new Map(), myFollowers = new Map(), tab = params.get("tab") || (params.get("reel") ? "reels" : "overview"), lbRows = null;
   const people = {}, postMap = {};
   let wantedCode = "";
   let loadSeq = 0, extrasPending = false;      // extrasPending: rank + recent tests are still loading in the background
@@ -81,7 +81,22 @@
       if (quickMsg(p)) btns += `<a class="btn btn-ghost" href="messages.html?to=${enc}">${ic("chat")} Message</a>`;
     }
     return `<div class="cm-row"><a href="profile.html?u=${enc}">${C.avatarHtml(p, "sm")}</a>
-      <div class="grow"><a href="profile.html?u=${enc}"><b>${esc(p.name)}</b></a><small>${p.isPrivate ? ic("lock") + " Private · " : ""}${followsMe && !you ? "Follows you · " : ""}${note}</small></div>${btns}</div>`;
+      <div class="grow"><a href="profile.html?u=${enc}"><b>${esc(p.name)}</b></a><small>${[C.handleOf(p), p.isPrivate ? ic("lock") + " Private" : "", followsMe && !you ? "Follows you" : "", note].filter(Boolean).join(" · ")}</small><small class="cm-mf" data-mf="${esc(p.id)}"></small></div>${btns}</div>`;
+  }
+  // "Mutual friends": students I follow who also follow this person (shown by name)
+  async function fillMutuals(box, ps) {
+    const mine = new Set([...myFollowing.values()].filter(f => f.status === "accepted").map(f => f.target));
+    await Promise.all(ps.slice(0, 12).map(async x => {
+      if (x.id === me.uid || !mine.size) return;
+      try {
+        const acc = (myFollowing.get(x.id) || {}).status === "accepted";
+        const rows = await C.listFollowers(x.id, false, x, acc);
+        const ids = [...new Set((rows || []).map(r => r.follower).filter(u => mine.has(u) && u !== x.id))];
+        const el = box.querySelector(`[data-mf="${CSS.escape(x.id)}"]`); if (!el || !ids.length) return;
+        const names = (await C.profilesOf(ids, 3)).map(q => q.name);
+        el.textContent = "Mutual friends: " + names.join(", ") + (ids.length > 3 ? " +" + (ids.length - 3) + " more" : "");
+      } catch (e) {}
+    }));
   }
   async function peopleList(el, rows, key, empty) {
     if (!rows) { el.innerHTML = `<div class="empty">This list is not available.</div>`; return; }
@@ -89,6 +104,7 @@
     el.innerHTML = `<div class="skel"></div>`;
     const ps = await C.profilesOf(rows.map(r => r[key]));
     el.innerHTML = ps.map(p => personRow(p)).join("");
+    fillMutuals(el, ps);
   }
 
   /* ---------- load ---------- */
@@ -158,7 +174,7 @@
 
   /* ---------- header ---------- */
   function actionsHtml() {
-    if (isMe) return `<button class="btn btn-gold" data-act="edit">${ic("pencil")} Edit profile</button><a class="btn btn-ghost" href="settings.html">${ic("gear")} Settings</a>`;
+    if (isMe) return `<button class="btn btn-gold" data-act="edit">${ic("pencil")} Edit profile</button>`;
     if (blocked) return `<span class="cm-chip">${ic("ban")} You blocked this student</span><button class="btn btn-ghost" data-act="unblock">Unblock</button>`;
     let f;
     if (!rel) f = `<button class="btn btn-gold" data-act="follow">${ic(prof.isPrivate ? "lock" : "user-plus")} ${prof.isPrivate ? "Request to follow" : (theirRel && theirRel.status === "accepted" ? "Follow back" : "Follow")}</button>`;
@@ -170,24 +186,27 @@
   function render(canSee) {
     const code = prof.code || C.studentCode(uid);
     const pend = [...myFollowers.values()].filter(f => f.status === "pending").length;
-    const head = `<div class="panel cm-head">
+    const gear = isMe ? `<a class="cm-gear" href="settings.html" aria-label="Settings" title="Settings">${ic("gear")}</a>` : "";
+    const head = `<div class="panel cm-head">${gear}
       ${C.avatarHtml(prof, "xl")}
       <div class="cm-info">
         <h1><span data-keep>${esc(prof.name)}</span> ${prof.isPrivate ? `<span title="Private profile" class="cm-chip">${ic("lock")} Private</span>` : ""}</h1>
+        <div class="cm-handle">${C.handleOf(prof)}</div>
+        ${canSee ? `<div class="cm-mini"><button data-tab="followers"><b>${fers ? fers.length : "–"}</b> Followers</button><button data-tab="following"><b>${fing ? fing.length : "–"}</b> Following</button>${stats ? `<span><b>${stats.tests || 0}</b> Tests</span>` : ""}</div>` : ""}
         ${canSee && stats && stats.bio ? `<p class="cm-bio">${esc(stats.bio)}</p>` : ""}
         <div class="cm-chips">
           <span id="rk" style="display:contents">${rank ? `<span class="cm-chip gold">${ic("trophy")} Rank #${rank}</span>` : ""}</span>
           ${canSee && stats && stats.course ? `<span class="cm-chip">${ic("cap")} ${esc(stats.course)}</span>` : ""}
           ${!isMe && theirRel && theirRel.status === "accepted" ? `<span class="cm-chip">Follows you</span>` : ""}
           ${isMe && prof.hideRank ? `<span class="cm-chip">${ic("eye-off")} Rank hidden from others</span>` : ""}
-          <button class="cm-chip" data-act="copyid" title="Copy username" style="cursor:pointer;color:inherit;font-family:inherit">${ic("copy")} ${C.fmtCode(code)}</button>
+          <button class="cm-chip" data-act="copyid" title="Copy username" style="cursor:pointer;color:inherit;font-family:inherit">${ic("copy")} ${C.handleOf(prof)}</button>
         </div>
       </div>
       <div class="cm-actions">${actionsHtml()}</div>
     </div>`;
 
     const tabs = isMe
-      ? [["overview", "Overview", "user"], ["posts", "Posts", "image"], ["reels", "Reels", "film"], ["feed", "Feed", "feed"], ["find", "Find people", "search"], ["followers", "Followers" + (fers ? " (" + fers.length + ")" : ""), "users"], ["following", "Following" + (fing ? " (" + fing.length + ")" : ""), "user-plus"], ["requests", "Requests" + (pend ? " (" + pend + ")" : ""), "hand"]]
+      ? [["overview", "Overview", "user"], ["posts", "Posts", "image"], ["reels", "Reels", "film"], ["saved", "Saved", "bookmark"], ["feed", "Feed", "feed"], ["find", "Find people", "search"], ["followers", "Followers" + (fers ? " (" + fers.length + ")" : ""), "users"], ["following", "Following" + (fing ? " (" + fing.length + ")" : ""), "user-plus"], ["requests", "Requests" + (pend ? " (" + pend + ")" : ""), "hand"]]
       : [["overview", "Overview", "user"], ["posts", "Posts", "image"], ["reels", "Reels", "film"], ["followers", "Followers" + (fers ? " (" + fers.length + ")" : ""), "users"], ["following", "Following" + (fing ? " (" + fing.length + ")" : ""), "user-plus"]];
     if (!tabs.some(t => t[0] === tab)) tab = "overview";
     $("app").innerHTML = head + `<div class="cm-tabs" id="tabs">${tabs.map(([k, l, i]) => `<button class="chip ${k === tab ? "on" : ""}" data-tab="${k}">${ic(i)} ${l}</button>`).join("")}</div><div id="panel"></div>`;
@@ -206,6 +225,7 @@
     else if (tab === "posts") postsTab("post");
     else if (tab === "reels") postsTab("reel");
     else if (tab === "feed") feedTab();
+    else if (tab === "saved") savedTab();
     else if (tab === "find") findTab();
     else if (tab === "followers") { p.innerHTML = `<div class="cm-list" id="lst"></div>`; peopleList($("lst"), fers, "follower", isMe ? "No followers yet. Share your username with friends!" : "No followers yet."); }
     else if (tab === "following") { p.innerHTML = `<div class="cm-list" id="lst"></div>`; peopleList($("lst"), fing, "target", isMe ? "You are not following anyone yet. Try the Find people tab." : "Not following anyone yet."); }
@@ -241,7 +261,8 @@
         <div class="panel"><h2>${ic("notes")} Recent tests</h2>${tests.length ? `<div class="cm-list">${tests.slice(0, 5).map(r => `<div class="cm-row"><div class="grow"><b data-keep>${esc(r.testTitle || "Test")}</b><small>${dateTxt(C.A.toMs(r.createdAt) || Date.now())}${r.rank ? " · Rank #" + r.rank + " of " + r.rankTotal : ""}</small></div><div class="cm-pts">${Math.round(+r.percent || 0)}%<small>${r.score}/${r.total}</small></div></div>`).join("")}</div>` : `<p class="cm-sub" style="margin:0">No tests yet. <a href="tests.html" style="color:var(--gold2)">Take one now →</a></p>`}</div></div>`;
       out += `<div class="panel"><h2>${ic("link")} Your Username</h2>
           <p class="cm-sub" style="margin-bottom:12px">Friends can type this username in <b>Find people</b> (or open your link) to reach your profile, follow you and message you, even if your profile is private.</p>
-          <div class="cm-idbox"><code>${C.fmtCode(code)}</code><button class="btn btn-ghost" data-act="copyid">${ic("copy")} Copy username</button><button class="btn btn-ghost" data-act="copylink">${ic("link")} Copy profile link</button></div></div>`;
+          <div class="cm-idbox"><code>${C.handleOf(prof)}</code><button class="btn btn-ghost" data-act="copyid">${ic("copy")} Copy username</button><button class="btn btn-ghost" data-act="copylink">${ic("link")} Copy profile link</button><button class="btn btn-gold" data-act="uname">${ic("pencil")} Change username</button></div>
+          <p class="cm-sub" style="margin:10px 0 0;font-size:.82rem">You can change it ${C.UNAME_MAX} times in ${C.UNAME_DAYS} days. Left now: <b>${C.unameLeft(prof).left}/${C.UNAME_MAX}</b>${C.unameLeft(prof).left ? "" : " · next change on " + new Date(C.unameLeft(prof).nextAt).toLocaleDateString([], { day: "numeric", month: "short" })}</p></div>`;
     }
     return out;
   }
@@ -251,12 +272,12 @@
     const mine = p.uid === me.uid, enc = encodeURIComponent(p.uid), id = esc(p.id), liked = likes.includes(me.uid);
     return `<article class="pp-card" data-pid="${id}">
       <header class="pp-head"><a href="profile.html?u=${enc}">${C.avatarHtml(a, "sm")}</a>
-        <div class="grow"><a href="profile.html?u=${enc}"><b data-keep>${esc(a.name)}</b></a><small>${p.kind === "reel" ? "Reel" : "Post"} · ${dateTxt(p.ts || Date.now())}${p.edited ? " · edited" : ""}</small></div>
+        <div class="grow"><a href="profile.html?u=${enc}"><b data-keep>${esc(a.name)}</b></a><small>${p.repostOf ? "Reposted " : ""}${p.kind === "reel" ? "Reel" : "Post"} · ${dateTxt(p.ts || Date.now())}${p.edited ? " · edited" : ""}</small></div>
         ${mine ? `<div class="cm-menu"><button class="btn btn-ghost" data-act="pmenu" data-id="${id}" aria-label="Post options" style="padding:6px 12px">${ic("more")}</button>
           <div class="cm-menu-pop pp-pop" data-for="${id}"><button data-act="pedit" data-id="${id}">${ic("pencil")} Edit caption</button><button data-act="pdel" data-id="${id}">${ic("trash")} Delete</button></div></div>` : ""}</header>
       ${p.media ? `<div class="pp-media ${p.kind === "reel" ? "reel" : ""}" data-pm="${id}"><div class="skel"></div></div>` : ""}
       ${p.caption ? `<p class="pp-cap" data-keep>${esc(p.caption)}</p>` : ""}
-      <footer class="pp-foot"><button class="pp-like ${liked ? "on" : ""}" data-act="plike" data-id="${id}">${ic("heart")} <span>${likes.length}</span></button></footer></article>`;
+      <footer class="pp-foot"><button class="pp-like ${liked ? "on" : ""}" data-act="plike" data-id="${id}">${ic("heart")} <span>${likes.length}</span></button> <button class="pp-like" data-act="openreel" data-id="${id}" aria-label="Comments, repost, share, save">${ic("chat")} <span>More</span></button></footer></article>`;
   }
   const reelWatch = typeof IntersectionObserver === "function" ? new IntersectionObserver(es => es.forEach(en => { const v = en.target; if (en.isIntersecting && en.intersectionRatio > 0.6) { v.muted = true; v.play().catch(() => {}); } else v.pause(); }), { threshold: [0, 0.6, 1] }) : null;
   function hydratePosts(box, rows) {
@@ -280,11 +301,92 @@
     box.innerHTML = rows.map((r, i) => postCard(r, amap[r.uid] || { name: "Student" }, likes[i])).join("");
     hydratePosts(box, rows);
   }
+  /* ---------- reel / post viewer: like, comment, repost, share, save ---------- */
+  let cur = null, savedSet = null;
+  const curBox = id => document.getElementById(id);
+  async function openReel(id) {
+    let q = postMap[id];
+    if (!q) {
+      try { q = await C.A.fsGetPath(["posts", id]); if (q) { q.likes = await C.likesOf(id); postMap[id] = q; } } catch (e) {}
+      if (!q) return C.toast("This post is not available.", 3000);
+    }
+    if (!savedSet) savedSet = await C.savedIds(me.uid);
+    cur = { p: q, cm: [], rp: [] };
+    const m = modal(`<div class="rl-view"><button class="cm-x rl-close" aria-label="Close">✕</button>
+      ${q.media ? `<div class="pp-media ${q.kind === "reel" ? "reel" : ""}" id="rl-box"><div class="skel"></div></div>` : ""}
+      <div class="rl-bar" id="rl-bar"></div>
+      ${q.caption ? `<p class="pp-cap" data-keep>${esc(q.caption)}</p>` : ""}
+      <div class="rl-cm" id="rl-cm" hidden><div id="rl-list" class="rl-list"></div>
+        <div class="rl-send"><input id="rl-ci" maxlength="300" placeholder="Add a comment..." autocomplete="off"><button class="btn btn-gold" data-act="csend">Post</button></div></div></div>`);
+    cur.m = m; drawBar();
+    if (q.media) C.F.fileUrl(q.media, { type: "post" }).then(url => { const box = curBox("rl-box"); if (box) box.innerHTML = q.media.kind === "video" ? `<video controls autoplay loop playsinline src="${esc(url)}"></video>` : `<img class="zoomable" src="${esc(url)}" alt="">`; }).catch(() => { const box = curBox("rl-box"); if (box) box.innerHTML = `<div class="empty">This media is not available.</div>`; });
+    const [cm, rp] = await Promise.all([C.commentsOf(q.id), C.repostsOf(q.repostOf || q.id)]);
+    if (cur && cur.p === q) { cur.cm = cm; cur.rp = rp; drawBar(); drawComments(); }
+  }
+  function drawBar() {
+    const bar = curBox("rl-bar"); if (!bar || !cur) return;
+    const q = cur.p, liked = q.likes.includes(me.uid), rp = cur.rp.includes(me.uid), sv = savedSet.has(q.id);
+    bar.innerHTML = `<button class="rl-act ${liked ? "on like" : ""}" data-act="plike" data-id="${esc(q.id)}" aria-label="Like">${ic("heart")}<span>${q.likes.length}</span></button>
+      <button class="rl-act" data-act="rcomment" aria-label="Comments">${ic("chat")}<span>${cur.cm.length}</span></button>
+      <button class="rl-act ${rp ? "on" : ""}" data-act="rrepost" aria-label="Repost">${ic("repost")}<span>${cur.rp.length}</span></button>
+      <button class="rl-act" data-act="rshare" aria-label="Share">${ic("share")}</button>
+      <button class="rl-act rl-save ${sv ? "on" : ""}" data-act="rsave" aria-label="Save">${ic("bookmark")}</button>`;
+  }
+  async function drawComments() {
+    const list = curBox("rl-list"); if (!list || !cur) return;
+    if (!cur.cm.length) { list.innerHTML = `<div class="empty" style="padding:14px">No comments yet. Be the first.</div>`; return; }
+    const ps = await C.profilesOf([...new Set(cur.cm.map(c => c.uid))]); const pm = Object.fromEntries(ps.map(x => [x.id, x]));
+    if (!curBox("rl-list")) return;
+    list.innerHTML = cur.cm.map(c => `<div class="rl-c"><a href="profile.html?u=${encodeURIComponent(c.uid)}">${C.avatarHtml(pm[c.uid] || { name: "Student" }, "sm")}</a><div class="grow"><b data-keep>${esc((pm[c.uid] || {}).name || "Student")}</b> <span data-keep>${esc(c.text)}</span><small>${dateTxt(c.ts || Date.now())}</small></div>${c.uid === me.uid || cur.p.uid === me.uid ? `<button class="cm-x2" data-act="cdel" data-id="${esc(c.id)}" aria-label="Delete comment">✕</button>` : ""}</div>`).join("");
+    list.scrollTop = list.scrollHeight;
+  }
+  async function sendComment() {
+    const i = curBox("rl-ci"); if (!i || !cur) return;
+    const c = await C.addComment(cur.p.id, me.uid, i.value); i.value = ""; cur.cm.push(c); drawBar(); drawComments();
+  }
+  async function toggleRepost() {
+    const q = cur.p;
+    if (q.uid === me.uid && !q.repostOf) return C.toast("You cannot repost your own post.", 2500);
+    if (cur.rp.includes(me.uid)) { await C.unrepost(me.uid, q); cur.rp = cur.rp.filter(u => u !== me.uid); C.toast("Repost removed", 2000); }
+    else { await C.repost(me.uid, q); cur.rp.push(me.uid); C.toast("Reposted to your profile", 2500); }
+    drawBar();
+  }
+  async function toggleSave() {
+    const id = cur.p.id;
+    if (savedSet.has(id)) { await C.unsavePost(me.uid, id); savedSet.delete(id); C.toast("Removed from Saved", 2000); }
+    else { await C.savePost(me.uid, id); savedSet.add(id); C.toast("Saved", 2000); }
+    drawBar();
+  }
+  async function shareReel() {
+    const q = cur.p, link = new URL("profile.html?u=" + encodeURIComponent(q.repostOf ? q.uid : q.uid) + "&reel=" + encodeURIComponent(q.id), location.href).href;
+    if (navigator.share) { try { await navigator.share({ title: "Reel on Gyaan Hub", text: (q.caption || "").slice(0, 80), url: link }); return; } catch (e) { if (e && e.name === "AbortError") return; } }
+    copy(link, "Link copied");
+  }
+  async function savedTab() {
+    $("panel").innerHTML = `<div id="plist" class="pp-list"><div class="skel"></div></div>`;
+    try {
+      savedSet = await C.savedIds(me.uid);
+      const rows = (await Promise.all([...savedSet].map(i => C.A.fsGetPath(["posts", i]).catch(() => null)))).filter(Boolean).sort((a, b) => (b.ts || 0) - (a.ts || 0));
+      await paintPosts($("plist"), rows, "Nothing saved yet. Tap the bookmark on any post or reel.");
+    } catch (e) { const b = $("plist"); if (b) b.innerHTML = `<div class="empty">${esc(C.errText(e))}</div>`; }
+  }
+  async function reelsGrid(box, rows, emptyMsg) {
+    if (!rows.length) { box.className = ""; box.innerHTML = `<div class="empty">${emptyMsg}</div>`; return; }
+    const likes = await Promise.all(rows.map(r => C.likesOf(r.id)));
+    if (!box.isConnected) return;
+    rows.forEach((r, i) => { postMap[r.id] = { ...r, likes: likes[i] }; });
+    box.className = "rl-grid";
+    box.innerHTML = rows.map((r, i) => `<button class="rl-tile" data-act="openreel" data-id="${esc(r.id)}" data-pm="${esc(r.id)}" aria-label="Open reel"><span class="rl-play">${ic("film")}</span><span class="rl-likes">${ic("heart")} ${likes[i].length}</span></button>`).join("");
+    rows.forEach(r => {
+      const el = box.querySelector(`[data-pm="${CSS.escape(r.id)}"]`); if (!el || !r.media) return;
+      C.F.fileUrl(r.media, { type: "post" }).then(url => { el.insertAdjacentHTML("afterbegin", `<video muted playsinline preload="metadata" src="${esc(url)}#t=0.1"></video>`); }).catch(() => {});
+    });
+  }
   async function postsTab(kind) {
     const el = $("panel");
     const head = isMe ? `<div class="pp-new"><button class="btn btn-gold" data-act="newpost" data-kind="${kind}">${ic(kind === "reel" ? "film" : "plus")} New ${kind}</button><small>${kind === "reel" ? "Short videos, up to " + C.F.MAX_REEL_SECONDS + " seconds." : "Share a photo, a video or just a thought."}</small></div>` : "";
     el.innerHTML = `${head}<div id="plist" class="pp-list"><div class="skel"></div></div>`;
-    try { await paintPosts($("plist"), await C.listPosts(uid, kind), isMe ? `You have no ${kind}s yet. Tap <b>New ${kind}</b> to add one.` : `No ${kind}s yet.`); }
+    try { const rows = await C.listPosts(uid, kind); if (kind === "reel") { await reelsGrid($("plist"), rows, isMe ? `You have no reels yet. Tap <b>New reel</b> to add one.` : "No reels yet."); return; } await paintPosts($("plist"), rows, isMe ? `You have no ${kind}s yet. Tap <b>New ${kind}</b> to add one.` : `No ${kind}s yet.`); }
     catch (e) { const b = $("plist"); if (b) b.innerHTML = `<div class="empty">${esc(C.errText(e))}</div>`; }
   }
   async function feedTab() {
@@ -345,7 +447,7 @@
 
   /* ---------- find people (name or username) ---------- */
   function findTab() {
-    $("panel").innerHTML = `<input class="cm-search" id="q" type="search" placeholder="Search by name or username (e.g. ${C.fmtCode(prof.code || C.studentCode(me.uid))})" maxlength="40" autocomplete="off">
+    $("panel").innerHTML = `<input class="cm-search" id="q" type="search" placeholder="Search by name or username (e.g. ${C.handleOf(myProf || prof)})" maxlength="40" autocomplete="off">
       <p class="cm-sub" style="font-size:.82rem;margin:8px 0 12px">Name search shows public profiles. Private profiles can only be found with their exact username.</p>
       <div id="found" class="cm-list"></div>
       <h3 style="margin:24px 0 10px">Suggested for you</h3><div id="sugg" class="cm-list"><div class="skel"></div></div>`;
@@ -358,6 +460,7 @@
         try {
           const res = (await C.searchStudents(q)).slice(0, 30);
           $("found").innerHTML = res.length ? res.map(p => personRow(p, p.byId ? "Found by username" : "")).join("") : `<div class="empty">No student found. Check the spelling or the username.</div>`;
+          fillMutuals($("found"), res);
         } catch (e) { $("found").innerHTML = `<div class="empty">${esc(C.errText(e))}</div>`; }
       }, 350);
     });
@@ -371,6 +474,7 @@
       const same = myCourse ? pool.filter(r => C.sameCourse(r.course, myCourse)) : [];
       const ids = [...same, ...pool.filter(r => !same.includes(r))].slice(0, 6).map(r => r.uid);
       const ps = await C.profilesOf(ids);
+      if ($("sugg")) setTimeout(() => fillMutuals($("sugg"), ps), 0);
       if ($("sugg")) $("sugg").innerHTML = ps.length ? ps.map(p => personRow(p, myCourse && same.some(r => r.uid === p.id) ? "Same course as you" : "Top student")).join("") : `<div class="empty">No suggestions yet. Search by name or username above.</div>`;
     } catch (e) { if ($("sugg")) $("sugg").innerHTML = `<div class="empty">${esc(C.errText(e))}</div>`; }
   }
@@ -432,6 +536,24 @@
     });
   }
 
+  /* ---------- change username ---------- */
+  function openUsername() {
+    const u = C.unameLeft(prof);
+    const m = modal(`<h2>Change username<button class="cm-x" aria-label="Close">✕</button></h2>
+      <p class="cm-sub" style="font-size:.9rem">Allowed: <b>${C.UNAME_MAX} changes in ${C.UNAME_DAYS} days</b>. You have <b>${u.left}</b> left${u.left ? "" : " (next change on " + new Date(u.nextAt).toLocaleString([], { day: "numeric", month: "short", hour: "2-digit", minute: "2-digit" }) + ")"}.</p>
+      <div class="cm-field"><label for="u-in">New username</label><input id="u-in" maxlength="20" autocomplete="off" autocapitalize="none" spellcheck="false" placeholder="e.g. rahul_neet" value="${esc(prof.username || "")}" ${u.left ? "" : "disabled"}></div>
+      <p class="cm-sub" style="font-size:.8rem;margin:-8px 0 12px">3-20 characters: a-z, 0-9, dot (.) and underscore (_). Your old profile links keep working.</p>
+      <div class="cm-msg" id="u-msg"></div>
+      <div class="cm-actions"><button class="btn btn-gold" id="u-go" ${u.left ? "" : "disabled"}>Save username</button><button class="btn btn-ghost cm-x" type="button">Cancel</button></div>`);
+    const inp = m.el.querySelector("#u-in"), msg = m.el.querySelector("#u-msg"), go = m.el.querySelector("#u-go");
+    inp.addEventListener("input", () => { inp.value = inp.value.toLowerCase().replace(/[^a-z0-9_.]/g, ""); });
+    go.addEventListener("click", async () => {
+      go.disabled = true; say(msg, "Saving...");
+      try { prof = await C.changeUsername(me, inp.value); myProf = prof; m.close(); await load(); C.toast("Username changed to " + C.handleOf(prof), 2800); }
+      catch (e) { say(msg, e && e.code ? C.errText(e) : (e.message || "Could not change the username."), "err"); go.disabled = false; }
+    });
+  }
+
   /* ---------- report ---------- */
   function openReport() {
     const m = modal(`<h2>Report ${esc(prof.name)}<button class="cm-x" aria-label="Close">✕</button></h2>
@@ -460,8 +582,16 @@
     try {
       if (act === "menu") pop.classList.toggle("open");
       else if (act === "edit") openEdit(false);
-      else if (act === "copyid") copy(C.fmtCode(prof.code || C.studentCode(uid)), "Username copied");
-      else if (act === "copylink") copy(C.profileLink(prof.code || C.studentCode(uid)), "Profile link copied");
+      else if (act === "uname") openUsername();
+      else if (act === "openreel") openReel(b.dataset.id);
+      else if (act === "rcomment") { const c = curBox("rl-cm"); if (c) { c.hidden = !c.hidden; if (!c.hidden) curBox("rl-ci").focus(); } }
+      else if (act === "csend") await sendComment();
+      else if (act === "cdel") { await C.deleteComment(cur.p.id, id); cur.cm = cur.cm.filter(c => c.id !== id); drawBar(); drawComments(); }
+      else if (act === "rrepost") await toggleRepost();
+      else if (act === "rshare") await shareReel();
+      else if (act === "rsave") await toggleSave();
+      else if (act === "copyid") copy(C.handleOf(prof), "Username copied");
+      else if (act === "copylink") copy(C.profileLink(prof.username || prof.code || C.studentCode(uid)), "Profile link copied");
       else if (act === "follow") { b.disabled = true; const st = await C.follow(me.uid, myProf, uid, prof); C.toast(st === "pending" ? "Request sent" : "You are now following " + prof.name, 2500); await load(); }
       else if (act === "unfollow") { b.disabled = true; await C.unfollow(me.uid, uid); await load(); }
       else if (act === "pfollow") { b.disabled = true; const st = await C.follow(me.uid, myProf, id, people[id]); C.toast(st === "pending" ? "Request sent" : "Following " + people[id].name, 2200); await afterRelChange(); }
@@ -481,6 +611,7 @@
         const liked = p.likes.includes(me.uid);
         if (liked) { await C.unlikePost(id, me.uid); p.likes = p.likes.filter(u => u !== me.uid); } else { await C.likePost(id, me.uid); p.likes.push(me.uid); }
         b.classList.toggle("on", !liked); b.querySelector("span:last-child").textContent = p.likes.length; b.disabled = false;
+        if (cur && cur.p.id === id && curBox("rl-bar")) drawBar();
       }
       else if (act === "report") { pop.classList.remove("open"); openReport(); }
       else if (act === "block") { pop.classList.remove("open"); if (confirm("Block " + prof.name + "? They will not be able to follow or message you.")) { await C.blockUser(me.uid, uid); await load(); } }
@@ -498,6 +629,8 @@
     window.scrollTo(0, scroll);
   }
 
+  document.addEventListener("keydown", e => { if (e.key === "Enter" && e.target && e.target.id === "rl-ci") { e.preventDefault(); sendComment().catch(err => C.toast(C.errText(err), 4000)); } });
+
   protectPage(async (user, demo) => {
     me = user;
     if (demo || C.A.isDemo()) { $("app").innerHTML = `<div class="panel cm-lock"><div class="big">${ic("plug")}</div><h2>Real account needed</h2><p class="cm-sub">The community works only with a real Firebase account (not demo mode).</p></div>`; return; }
@@ -510,12 +643,13 @@
       else uid = params.get("u") || user.uid;
       isMe = uid === user.uid;
       await load();
+      if (params.get("reel")) openReel(params.get("reel"));
       if (isMe && (r.created || params.get("welcome"))) { openEdit(true); history.replaceState(null, "", "profile.html"); }
     } catch (e) {
       $("app").innerHTML = `<div class="panel cm-lock"><div class="big">${ic("warning")}</div><h2>Could not load</h2><p class="cm-sub">${esc(C.errText(e))}</p></div>`;
     }
   });
 </script>
-<script type="module" src="layout.js?v=10"></script>
+<script type="module" src="layout.js?v=12"></script>
 </body>
 </html>

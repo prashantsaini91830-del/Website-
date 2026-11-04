@@ -9,15 +9,15 @@
 <link rel="modulepreload" href="https://www.gstatic.com/firebasejs/10.14.1/firebase-app.js">
 <link rel="modulepreload" href="https://www.gstatic.com/firebasejs/10.14.1/firebase-auth.js">
 <link rel="modulepreload" href="https://www.gstatic.com/firebasejs/10.14.1/firebase-firestore.js">
-<link rel="modulepreload" href="auth.js?v=10">
-<link rel="modulepreload" href="community.js?v=10">
-<link rel="modulepreload" href="media.js?v=10">
-<link rel="modulepreload" href="files.js?v=10">
-<link rel="modulepreload" href="player-utils.js?v=10">
-<link rel="stylesheet" href="style.css?v=10">
-<script src="site-config.js?v=10"></script>
-<script src="theme.js?v=10"></script>
-<script src="icons.js?v=10"></script>
+<link rel="modulepreload" href="auth.js?v=12">
+<link rel="modulepreload" href="community.js?v=12">
+<link rel="modulepreload" href="media.js?v=12">
+<link rel="modulepreload" href="files.js?v=12">
+<link rel="modulepreload" href="player-utils.js?v=12">
+<link rel="stylesheet" href="style.css?v=12">
+<script src="site-config.js?v=12"></script>
+<script src="theme.js?v=12"></script>
+<script src="icons.js?v=12"></script>
 </head>
 <body>
 <header class="nav">
@@ -44,9 +44,9 @@
 </main>
 
 <script type="module">
-  import { protectPage } from "./auth.js?v=10";
-  import * as C from "./community.js?v=10";
-  import { initLightbox } from "./media.js?v=10";
+  import { protectPage } from "./auth.js?v=12";
+  import * as C from "./community.js?v=12";
+  import { initLightbox } from "./media.js?v=12";
   const $ = id => document.getElementById(id);
   const { esc, F } = C;
   const ic = n => window.ic ? window.ic(n) : "";
@@ -284,6 +284,6 @@
     } catch (e) { $("list").innerHTML = `<div class="empty">${esc(C.errText(e))}</div>`; }
   });
 </script>
-<script type="module" src="layout.js?v=10"></script>
+<script type="module" src="layout.js?v=12"></script>
 </body>
 </html>

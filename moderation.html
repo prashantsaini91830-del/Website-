@@ -4,10 +4,10 @@
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1.0">
 <title>Community reports | Gyaan Hub</title>
-<link rel="stylesheet" href="style.css?v=10">
-<script src="site-config.js?v=10"></script>
-<script src="theme.js?v=10"></script>
-<script src="icons.js?v=10"></script>
+<link rel="stylesheet" href="style.css?v=12">
+<script src="site-config.js?v=12"></script>
+<script src="theme.js?v=12"></script>
+<script src="icons.js?v=12"></script>
 </head>
 <body>
 <header class="nav">
@@ -27,8 +27,8 @@
 </main>
 
 <script type="module">
-  import { protectPage, checkAdmin, fsRecent, fsSetPath, fsDelete, toMs } from "./auth.js?v=10";
-  import { esc, errText, toast } from "./community.js?v=10";
+  import { protectPage, checkAdmin, fsRecent, fsSetPath, fsDelete, toMs } from "./auth.js?v=12";
+  import { esc, errText, toast } from "./community.js?v=12";
   const $ = id => document.getElementById(id);
   let rows = [], filter = "open";
 
@@ -77,6 +77,6 @@
     catch (e) { $("out").innerHTML = `<div class="empty">${esc(errText(e))}</div>`; }
   });
 </script>
-<script type="module" src="layout.js?v=10"></script>
+<script type="module" src="layout.js?v=12"></script>
 </body>
 </html>

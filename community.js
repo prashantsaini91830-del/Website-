@@ -1,8 +1,8 @@
 // Gyaan Hub - Student Community (profiles, follow, rank, messages, block / report)
 // Uses the SAME Firebase project and helpers as the rest of the site (auth.js). No new keys, no new services.
-import * as A from "./auth.js?v=10";
-import { squareAvatar } from "./media.js?v=10";
-import * as F from "./files.js?v=10";
+import * as A from "./auth.js?v=12";
+import { squareAvatar } from "./media.js?v=12";
+import * as F from "./files.js?v=12";
 
 export { A, squareAvatar, F };
 export const esc = s => String(s ?? "").replace(/[&<>"']/g, c => ({ "&": "&amp;", "<": "&lt;", ">": "&gt;", '"': "&quot;", "'": "&#39;" }[c]));
@@ -104,10 +104,47 @@ export function normCode(q) {
 export const looksLikeCode = q => /^[0-9A-Za-z]{4}[-\s]?[0-9A-Za-z]{4}$/.test(String(q).trim().replace(/^@/, "").replace(/^gh[-\s]?/i, ""));
 export const profileLink = code => new URL("profile.html?c=" + code, location.href).href;
 export async function findByCode(q) {
+  const raw = String(q || "").trim().replace(/^@/, "").toLowerCase();
+  const out = new Map();
+  if (UNAME_RE.test(raw)) {                                  // custom username (exact match)
+    try { (await A.fsWhere("profiles", [["username", "==", raw]])).forEach(r => out.set(r.id, r)); } catch (e) {}
+  }
   const code = normCode(q);
-  if (code.length !== 8) return [];
-  const rows = await A.fsWhere("profiles", [["code", "==", code]]);
-  return rows.filter(r => studentCode(r.id) === code);    // reject anyone claiming a code that is not theirs
+  if (code.length === 8) {                                   // original hashed username (old links keep working)
+    const rows = await A.fsWhere("profiles", [["code", "==", code]]);
+    rows.filter(r => studentCode(r.id) === code).forEach(r => out.set(r.id, r));
+  }
+  return [...out.values()];
+}
+
+/* ---------- editable username: max 5 changes in any 14 days ---------- */
+export const UNAME_RE = /^[a-z0-9_.]{3,20}$/;
+export const UNAME_MAX = 5, UNAME_DAYS = 14;
+const DAY_MS = 86400000;
+export const handleOf = p => "@" + String((p && p.username) || (p && p.code) || "").toLowerCase();
+export const unameLeft = p => {                              // { left, nextAt } from the change log in my profile
+  const now = Date.now(), log = ((p && p.unameLog) || []).map(Number).filter(t => now - t < UNAME_DAYS * DAY_MS).sort((a, b) => a - b);
+  return { left: Math.max(0, UNAME_MAX - log.length), log, nextAt: log.length >= UNAME_MAX ? log[0] + UNAME_DAYS * DAY_MS : 0 };
+};
+export async function changeUsername(user, wanted) {
+  const name = String(wanted || "").trim().replace(/^@/, "").toLowerCase();
+  if (!UNAME_RE.test(name)) throw new Error("Username must be 3-20 characters: letters, numbers, dot or underscore.");
+  if (looksLikeCode(name) && name !== String((await getProfile(user.uid, true) || {}).username || "")) throw new Error("This username is reserved. Please choose another one.");
+  const p = await getProfile(user.uid, true);
+  if (!p) throw new Error("Profile not found.");
+  if (p.username === name) throw new Error("This is already your username.");
+  const { left, nextAt, log } = unameLeft(p);
+  if (!left) throw new Error("You can change your username only " + UNAME_MAX + " times in " + UNAME_DAYS + " days. Try again on " + new Date(nextAt).toLocaleString([], { day: "numeric", month: "short", hour: "2-digit", minute: "2-digit" }) + ".");
+  const taken = await A.fsGetPath(["usernames", name]).catch(() => null);
+  if (taken && taken.uid !== user.uid) throw new Error("@" + name + " is already taken.");
+  try { await A.fsSetPath(["usernames", name], { uid: user.uid }, false); }          // create-only: the rules reject it if someone claimed it first
+  catch (e) { if (e && e.code === "permission-denied") throw new Error("@" + name + " is already taken."); throw e; }
+  const unameLog = [...log, Date.now()].slice(-UNAME_MAX);
+  try { await A.fsSetPath(["profiles", user.uid], { username: name, unameLog }); }
+  catch (e) { try { await A.fsDeletePath(["usernames", name]); } catch (e2) {} throw e; }
+  if (p.username) { try { await A.fsDeletePath(["usernames", p.username]); } catch (e) {} }   // free the old name
+  PC[user.uid] = { ...p, username: name, unameLog };
+  return PC[user.uid];
 }
 
 /* ---------- profiles ---------- */
@@ -170,7 +207,7 @@ export async function saveMyProfile(user, d) {
   const prev = await getProfile(user.uid, true);
   const prof = { name: d.name, nameLc: d.name.toLowerCase(), avatar: d.avatar || "", isPrivate: !!d.isPrivate, hideRank: !!d.hideRank, dm: d.dm || "followers", code: studentCode(user.uid) };
   await A.fsSetPath(["profiles", user.uid], prof);
-  PC[user.uid] = { id: user.uid, ...prof };
+  PC[user.uid] = { id: user.uid, ...prev, ...prof };
   try { await A.setDisplayName(d.name); await A.saveUserDoc({ name: d.name }); localStorage.setItem("gyaan_name_" + user.uid, d.name); } catch (e) {}
   const stats = await syncMyStats(user, PC[user.uid], { bio: d.bio || "", course: d.course || "" });
   if (!prev || !!prev.isPrivate !== prof.isPrivate) await syncFollowPrivacy(user.uid, prof.isPrivate);
@@ -188,8 +225,10 @@ export async function searchStudents(q) {
   if (q.length < 2) return [];
   const out = new Map();
   const tasks = [];
-  if (looksLikeCode(q)) tasks.push(findByCode(q).then(r => r.forEach(p => out.set(p.id, { ...p, byId: true }))).catch(() => {}));
+  if (looksLikeCode(q) || UNAME_RE.test(q.replace(/^@/, "").toLowerCase())) tasks.push(findByCode(q).then(r => r.forEach(p => out.set(p.id, { ...p, byId: true }))).catch(() => {}));
   const lc = q.toLowerCase();
+  const ulc = lc.replace(/^@/, "");
+  if (UNAME_RE.test(ulc)) tasks.push(A.fsWhere("profiles", [["username", ">=", ulc], ["username", "<=", ulc + "\uf8ff"]]).then(r => r.filter(p => !p.isPrivate).forEach(p => { out.set(p.id, { ...p, byId: true }); })).catch(() => {}));
   tasks.push(A.fsWhere("profiles", [["nameLc", ">=", lc], ["nameLc", "<=", lc + "\uf8ff"]]).then(r => r.filter(p => !p.isPrivate).forEach(p => { if (!out.has(p.id)) out.set(p.id, p); })));
   await Promise.all(tasks);
   return [...out.values()];
@@ -341,8 +380,39 @@ export async function feedPosts(uids, perUser = 6, max = 30) {
 export const editPost = (id, caption) => A.fsSetPath(["posts", id], { caption: String(caption || "").trim().slice(0, 500), edited: true, editedAt: Date.now() });
 export async function deletePost(p) {
   await A.fsDeletePath(["posts", p.id]);
+  if (p.repostOf) { try { await A.fsDeletePath(["posts", p.repostOf, "reposts", p.uid]); } catch (e) {} return; }   // a repost shares the original file: never delete it
   if (p.media) F.deleteFile(p.media, { type: "post" });
 }
 export async function likesOf(id) { try { return (await A.fsListPath(["posts", id, "likes"])).map(x => x.id); } catch (e) { return []; } }
 export const likePost = (id, me) => A.fsSetPath(["posts", id, "likes", me], { uid: me });
 export const unlikePost = (id, me) => A.fsDeletePath(["posts", id, "likes", me]);
+
+
+/* ---------- comments, reposts, saved (reel viewer) ---------- */
+// posts/{id}/comments/{cid}: { uid, text, ts }    posts/{id}/reposts/{uid}    users/{me}/saved/{postId}
+// A repost is a copy of the post document under my account (id rp_<originalId>_<myUid>) with repostOf set; it shares the original media.
+export async function commentsOf(id) { try { return (await A.fsListPath(["posts", id, "comments"])).sort((a, b) => (a.ts || 0) - (b.ts || 0)); } catch (e) { return []; } }
+export async function addComment(id, me, text) {
+  text = String(text || "").trim().slice(0, 300);
+  if (!text) throw new Error("Write a comment first.");
+  const cid = Date.now().toString(36) + Math.random().toString(36).slice(2, 6), c = { uid: me, text, ts: Date.now() };
+  await A.fsSetPath(["posts", id, "comments", cid], c, false);
+  return { id: cid, ...c };
+}
+export const deleteComment = (id, cid) => A.fsDeletePath(["posts", id, "comments", cid]);
+export async function repostsOf(id) { try { return (await A.fsListPath(["posts", id, "reposts"])).map(x => x.id); } catch (e) { return []; } }
+export const repostId = (p, me) => "rp_" + (p.repostOf || p.id) + "_" + me;
+export async function repost(me, p) {
+  const oid = p.repostOf || p.id;
+  await A.fsSetPath(["posts", oid, "reposts", me], { uid: me });
+  try { await A.fsSetPath(["posts", repostId(p, me)], { uid: me, kind: p.kind, caption: p.caption || "", media: p.media || null, repostOf: oid, ts: Date.now() }, false); }
+  catch (e) { if (!(e && e.code === "permission-denied")) throw e; }      // already reposted
+}
+export async function unrepost(me, p) {
+  const oid = p.repostOf || p.id;
+  await A.fsDeletePath(["posts", repostId(p, me)]).catch(() => {});
+  await A.fsDeletePath(["posts", oid, "reposts", me]);
+}
+export async function savedIds(me) { try { return new Set((await A.fsListPath(["users", me, "saved"])).map(x => x.id)); } catch (e) { return new Set(); } }
+export const savePost = (me, id) => A.fsSetPath(["users", me, "saved", id], { ts: Date.now() });
+export const unsavePost = (me, id) => A.fsDeletePath(["users", me, "saved", id]);

@@ -1,6 +1,6 @@
 // Gyaan Hub - shared layout: left slide-out menu + privacy/cookie consent popup + site name + preference sync
-import { getPrefs, savePrefs, mergeRemote } from "./prefs.js?v=10";
-import { t, applyI18n } from "./i18n.js?v=10";
+import { getPrefs, savePrefs, mergeRemote } from "./prefs.js?v=12";
+import { t, applyI18n } from "./i18n.js?v=12";
 const KEY = "gyaan_consent";
 const page = location.pathname.split("/").pop() || "index.html";
 const onLegalPage = ["privacy.html", "terms.html"].includes(page);
@@ -82,7 +82,7 @@ function buildMenu() {
     box.innerHTML = `<div class="who-row">${avatarHtml(u)}<div class="who">${t("nav.signedAs")}<br><b>${esc(u.displayName || u.email || "")}</b><small>${esc(u.displayName ? (u.email || "") : "")}</small></div></div><button class="btn btn-ghost btn-block" id="drawer-logout">${t("nav.logout")}</button>`;
     box.querySelector("#drawer-logout").addEventListener("click", a.logout);
   };
-  import("./auth.js?v=10").then(a => a.onUser(u => {
+  import("./auth.js?v=12").then(a => a.onUser(u => {
     if (!u) return signedOut();
     paintUser(u, a);
     window.addEventListener("avatar-changed", () => paintUser(u, a));
@@ -96,7 +96,7 @@ function buildMenu() {
       });
       let tm; window.addEventListener("prefs-saved", e => { clearTimeout(tm); tm = setTimeout(() => a.savePrefsUp(e.detail).catch(() => {}), 800); });
     }
-    if (!a.isDemo()) import("./community.js?v=10").then(async c => {
+    if (!a.isDemo()) import("./community.js?v=12").then(async c => {
       const [unread, reqs] = await Promise.all([c.unreadCount(u.uid), a.fsWhere("follows", [["target", "==", u.uid], ["status", "==", "pending"]]).then(r => r.length).catch(() => 0)]);
       const badge = (href, n) => { const el = n && drawer.querySelector(`.drawer-nav a[href="${href}"]`); if (el && !el.querySelector(".nav-badge")) el.insertAdjacentHTML("beforeend", `<i class="nav-badge">${n > 9 ? "9+" : n}</i>`); };
       badge("messages.html", unread); badge("profile.html", reqs);
@@ -168,7 +168,7 @@ window.addEventListener("prefs-changed", () => {
   if (d) d.querySelectorAll("[data-i18n]").forEach(el => { el.textContent = t(el.dataset.i18n); });
 });
 // site name / logo / contact: cached copy is applied by theme.js at once, the fresh copy is fetched here
-import("./auth.js?v=10").then(async a => {
+import("./auth.js?v=12").then(async a => {
   const site = await a.loadSite();
   if (!site) return;
   const fresh = { name: site.name || "", logo: site.logo || "", contact: site.contact || "" };
