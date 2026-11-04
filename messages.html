@@ -4,10 +4,10 @@
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1.0">
 <title>Messages | Gyaan Hub</title>
-<link rel="stylesheet" href="style.css?v=9">
-<script src="site-config.js?v=9"></script>
-<script src="theme.js?v=9"></script>
-<script src="icons.js?v=9"></script>
+<link rel="stylesheet" href="style.css?v=10">
+<script src="site-config.js?v=10"></script>
+<script src="theme.js?v=10"></script>
+<script src="icons.js?v=10"></script>
 </head>
 <body>
 <header class="nav">
@@ -34,11 +34,15 @@
 </main>
 
 <script type="module">
-  import { protectPage } from "./auth.js?v=9";
-  import * as C from "./community.js?v=9";
+  import { protectPage } from "./auth.js?v=10";
+  import * as C from "./community.js?v=10";
+  import { initLightbox } from "./media.js?v=10";
   const $ = id => document.getElementById(id);
-  const { esc } = C;
-  let me, myProf, chats = [], cur = null /* {uid, prof, cid} */, unsub = null, msgs = [], lastSend = 0;
+  const { esc, F } = C;
+  const ic = n => window.ic ? window.ic(n) : "";
+  let me, myProf, chats = [], cur = null /* {uid, prof, cid} */, unsub = null, msgs = [], lastSend = 0, pendFile = null, sending = false;
+  const attCache = {};      // message id -> attachment html (so a re-render does not reload the file)
+  initLightbox();
 
   const fmt = ms => { const d = new Date(ms), t = d.toLocaleTimeString([], { hour: "2-digit", minute: "2-digit" }); return d.toDateString() === new Date().toDateString() ? t : d.toLocaleDateString([], { day: "numeric", month: "short" }) + " " + t; };
 
@@ -68,7 +72,7 @@
         <div class="cm-menu"><button class="btn btn-ghost" id="menu" style="padding:6px 14px">⋯</button>
           <div class="cm-menu-pop" id="pop"><button id="m-report">🚩 Report</button><button id="m-block">${blocked ? "✅ Unblock" : "🚫 Block"}</button></div></div></div>
       <div class="cm-msgs" id="msgs"><div class="cm-empty">${exists ? "Loading..." : "Say hello 👋 Ask a study doubt or share notes."}</div></div>
-      ${can.ok ? `<div class="cm-compose"><textarea id="txt" maxlength="1000" placeholder="Type a message..." rows="1"></textarea><button class="btn btn-gold" id="send">Send</button></div>`
+      ${can.ok ? `<div class="cm-pend" id="pend" hidden></div><div class="cm-compose"><button class="btn btn-ghost cm-attach" id="attach" type="button" aria-label="Send a photo, video, PDF, APK or any file" title="Photo, video, PDF, APK or any file">${ic("paperclip")}</button><input type="file" id="file" hidden><textarea id="txt" maxlength="1000" placeholder="Type a message..." rows="1"></textarea><button class="btn btn-gold" id="send">Send</button></div>`
                : `<div class="cm-compose"><div class="cm-msg" style="margin:0;flex:1">${esc(can.why || "You cannot message this student.")}</div></div>`}`;
     $("back").addEventListener("click", () => { $("chat").classList.remove("in-conv"); if (unsub) { unsub(); unsub = null; } cur = null; loadList(); });
     $("menu").addEventListener("click", e => { e.stopPropagation(); $("pop").classList.toggle("open"); });
@@ -85,7 +89,11 @@
     if (can.ok) {
       $("send").addEventListener("click", send);
       $("txt").addEventListener("keydown", e => { if (e.key === "Enter" && !e.shiftKey) { e.preventDefault(); send(); } });
+      $("attach").addEventListener("click", () => $("file").click());
+      $("file").addEventListener("change", e => { const f = e.target.files[0]; e.target.value = ""; if (f) setPending(f); });
+      $("txt").addEventListener("paste", e => { const f = [...((e.clipboardData && e.clipboardData.files) || [])][0]; if (f) { e.preventDefault(); setPending(f); } });
     }
+    pendFile = null;
     if (exists) watch();
     loadList();
   }
@@ -98,27 +106,113 @@
       msgs = rows.sort((a, b) => (a.ts || 0) - (b.ts || 0));
       const box = $("msgs"); if (!box) return;
       const atEnd = box.scrollHeight - box.scrollTop - box.clientHeight < 80;
-      box.innerHTML = msgs.length ? msgs.map(m => `<div class="cm-bubble ${m.from === me.uid ? "mine" : ""}">${esc(m.text)}<small>${fmt(m.ts || Date.now())}</small></div>`).join("") : `<div class="cm-empty">Say hello 👋</div>`;
+      box.innerHTML = msgs.length ? msgs.map(bubble).join("") : `<div class="cm-empty">Say hello 👋</div>`;
+      box.dataset.stick = (atEnd || msgs.length < 3) ? "1" : "";
       if (atEnd || msgs.length < 3) box.scrollTop = box.scrollHeight;
+      hydrateAtts();
       C.markSeen(cid, me.uid);
     }, e => { const b = $("msgs"); if (b) b.innerHTML = `<div class="cm-empty">${esc(C.errText(e))}</div>`; });
   }
 
+  /* ---------- attachments ---------- */
+  function setPending(f) {
+    if (f.size > F.MAX_STORAGE_MB * 1048576) return C.toast("This file is too big. The limit is " + F.MAX_STORAGE_MB + " MB.", 5000);
+    pendFile = f; renderPend(); $("txt").placeholder = "Add a caption (optional)..."; $("txt").focus();
+  }
+  function renderPend() {
+    const el = $("pend"); if (!el) return;
+    if (!pendFile) { el.hidden = true; el.innerHTML = ""; $("txt").placeholder = "Type a message..."; return; }
+    const k = F.kindOf(pendFile);
+    el.hidden = false;
+    el.innerHTML = `<div class="cm-pchip">${ic(k === "image" ? "image" : k === "video" ? "film" : "file")}<span class="grow"><b data-keep>${esc(pendFile.name)}</b><small>${F.fmtSize(pendFile.size)}<span id="pp"></span></small></span><button class="cm-x2" id="pclear" type="button" aria-label="Remove file">✕</button></div><div class="cm-pbar" id="pbar" hidden><i></i></div>`;
+    $("pclear").addEventListener("click", () => { if (!sending) { pendFile = null; renderPend(); } });
+  }
+  function setProgress(p) {
+    const bar = $("pbar"); if (!bar) return;
+    bar.hidden = false; bar.firstElementChild.style.width = Math.round(p * 100) + "%";
+    const t = $("pp"); if (t) t.textContent = " · uploading " + Math.round(p * 100) + "%";
+  }
+  const attHtml = (a, url) => {
+    const u = esc(url);
+    if (a.kind === "image") return `<img class="zoomable cm-img" src="${u}" alt="${esc(a.name)}" loading="lazy" referrerpolicy="no-referrer">`;
+    if (a.kind === "video") return `<video class="cm-vid" controls preload="metadata" playsinline src="${u}"></video>`;
+    if (a.kind === "audio") return `<audio class="cm-aud" controls preload="none" src="${u}"></audio>`;
+    return `<a class="cm-file" href="${u}" download="${esc(a.name)}" target="_blank" rel="noopener">${ic("file")}<span><b data-keep>${esc(a.name)}</b><small>${F.fmtSize(a.size)} · Tap to download</small>${/\.apk$/i.test(a.name) ? "<small>APK files can install apps. Open only if you trust the sender.</small>" : ""}</span></a>`;
+  };
+  function bubble(m) {
+    const mine = m.from === me.uid, time = fmt(m.ts || Date.now());
+    if (m.deleted) return `<div class="cm-bubble unsent ${mine ? "mine" : ""}">${mine ? "You unsent this message" : "This message was unsent"}<small>${time}</small></div>`;
+    let att = "";
+    if (m.att) {
+      if (!attCache[m.id] && m.att.store === "st") attCache[m.id] = attHtml(m.att, m.att.url);
+      att = `<div class="cm-att" data-mid="${esc(m.id)}">${attCache[m.id] || `<div class="cm-att-load">${m.att.kind === "file" ? esc(m.att.name) : "Loading..."}</div>`}</div>`;
+    }
+    const menu = mine ? `<button class="cm-bm" data-bm="${esc(m.id)}" aria-label="Message options" type="button">${ic("more")}</button><div class="cm-bpop" data-bpop="${esc(m.id)}"><button data-edit="${esc(m.id)}" type="button">${ic("pencil")} Edit</button><button data-unsend="${esc(m.id)}" type="button">${ic("trash")} Unsend</button></div>` : "";
+    return `<div class="cm-bubble ${mine ? "mine" : ""}">${menu}${att}${m.text ? `<span>${esc(m.text)}</span>` : ""}<small>${time}${m.edited ? " · edited" : ""}</small></div>`;
+  }
+  function hydrateAtts() {
+    const cid = cur && cur.cid;
+    msgs.forEach(m => {
+      if (!m.att || m.deleted || attCache[m.id]) return;
+      const done = html => {
+        attCache[m.id] = html;
+        const el = document.querySelector(`.cm-att[data-mid="${CSS.escape(m.id)}"]`);
+        if (el) { el.innerHTML = html; const box = $("msgs"); if (box && box.dataset.stick) setTimeout(() => { box.scrollTop = box.scrollHeight; }, 60); }
+      };
+      F.fileUrl(m.att, { type: "chat", cid }).then(url => done(attHtml(m.att, url))).catch(() => done(`<div class="cm-att-load">This file is not available.</div>`));
+    });
+  }
+
+  /* ---------- edit / unsend my own messages ---------- */
+  function editMsg(m) {
+    const md = document.createElement("div");
+    md.className = "cm-modal";
+    md.innerHTML = `<div class="cm-card"><h2>Edit message<button class="cm-x" aria-label="Close">✕</button></h2>
+      <div class="cm-field"><textarea id="ed-t" maxlength="1000" rows="4"></textarea></div>
+      <div class="cm-msg" id="ed-m"></div>
+      <div class="cm-actions"><button class="btn btn-gold" id="ed-go">Save</button><button class="btn btn-ghost cm-x" type="button">Cancel</button></div></div>`;
+    document.body.appendChild(md);
+    const t = md.querySelector("#ed-t"); t.value = m.text || ""; t.focus();
+    const close = () => md.remove();
+    md.addEventListener("click", e => { if (e.target === md) close(); });
+    md.querySelectorAll(".cm-x").forEach(b => b.addEventListener("click", close));
+    md.querySelector("#ed-go").addEventListener("click", async () => {
+      const el = md.querySelector("#ed-m"), go = md.querySelector("#ed-go");
+      go.disabled = true;
+      try {
+        await C.editMessage(cur.cid, m, t.value, msgs.length && msgs[msgs.length - 1].id === m.id);
+        close(); loadList();
+      } catch (e) { el.className = "cm-msg err"; el.textContent = e && e.code ? C.errText(e) : (e.message || "Could not edit."); go.disabled = false; }
+    });
+  }
+  async function unsendMsg(m) {
+    if (!confirm("Unsend this message? It will be removed for both of you.")) return;
+    try { await C.unsendMessage(cur.cid, m, msgs.length && msgs[msgs.length - 1].id === m.id); delete attCache[m.id]; loadList(); }
+    catch (e) { C.toast(C.errText(e), 6000); }
+  }
+
   async function send() {
     const ta = $("txt"), text = ta.value.trim();
-    if (!text || Date.now() - lastSend < 800) return;
-    lastSend = Date.now();
-    const btn = $("send"); btn.disabled = true;
+    if ((!text && !pendFile) || sending || Date.now() - lastSend < 800) return;
+    lastSend = Date.now(); sending = true;
+    const btn = $("send"); btn.disabled = true; $("attach").disabled = true;
     const existed = await C.chatExists(cur.cid);
+    let att = null;
     try {
-      await C.sendMessage(me.uid, cur.uid, text);
-      ta.value = "";
+      if (pendFile) {
+        await C.ensureChat(me.uid, cur.uid);            // the chat must exist before the file is stored
+        att = await F.uploadFile(pendFile, { type: "chat", cid: cur.cid }, setProgress);
+      }
+      await C.sendMessage(me.uid, cur.uid, text, att);
+      ta.value = ""; pendFile = null; renderPend();
       if (!existed) watch();
       loadList();
     } catch (e) {
-      C.toast(e && e.code === "permission-denied" ? "This message could not be sent. The student may not accept messages from you." : C.errText(e), 6000);
+      if (att) F.deleteFile(att, { type: "chat", cid: cur.cid });      // do not leave a stored file behind if the message failed
+      const bar = $("pbar"); if (bar) bar.hidden = true; const pp = $("pp"); if (pp) pp.textContent = "";
+      C.toast(e && e.code === "permission-denied" ? "This could not be sent. The student may not accept messages from you, or the updated Firestore/Storage rules are not published yet." : (e && e.code ? C.errText(e) : (e.message || "Could not send.")), 7000);
     }
-    btn.disabled = false; ta.focus();
+    sending = false; btn.disabled = false; $("attach").disabled = false; ta.focus();
   }
 
   function report() {
@@ -136,7 +230,7 @@
     m.querySelectorAll(".cm-x").forEach(b => b.addEventListener("click", close));
     m.querySelector("#r-go").addEventListener("click", async () => {
       const el = m.querySelector("#r-msg");
-      const evidence = msgs.slice(-8).map(x => ({ from: x.from === me.uid ? "reporter" : "reported", text: String(x.text).slice(0, 300) }));
+      const evidence = msgs.slice(-8).map(x => ({ from: x.from === me.uid ? "reporter" : "reported", text: x.deleted ? "[unsent message]" : String(x.text || (x.att ? "[" + F.attLabel(x.att) + "]" : "")).slice(0, 300) }));
       try {
         await C.reportUser(me.uid, myProf.name, cur.uid, cur.prof.name, m.querySelector("#r-why").value, m.querySelector("#r-txt").value, evidence);
         el.className = "cm-msg ok"; el.textContent = "Thank you. Our team will review this report.";
@@ -159,6 +253,11 @@
   });
 
   document.addEventListener("click", e => {
+    const bm = e.target.closest("[data-bm]");
+    document.querySelectorAll(".cm-bpop.open").forEach(p => { if (!bm || p.dataset.bpop !== bm.dataset.bm) p.classList.remove("open"); });
+    if (bm) { e.stopPropagation(); const p = document.querySelector(`.cm-bpop[data-bpop="${CSS.escape(bm.dataset.bm)}"]`); if (p) p.classList.toggle("open"); return; }
+    const ed = e.target.closest("[data-edit]"), un = e.target.closest("[data-unsend]");
+    if (ed || un) { const m = msgs.find(x => x.id === (ed || un).dataset[ed ? "edit" : "unsend"]); document.querySelectorAll(".cm-bpop.open").forEach(p => p.classList.remove("open")); if (m) (ed ? editMsg(m) : unsendMsg(m)); return; }
     const pop = $("pop"); if (pop && !e.target.closest(".cm-menu")) pop.classList.remove("open");
     const r = e.target.closest("[data-open]"); if (r) { open(r.dataset.open); $("nq").value = ""; $("nres").innerHTML = ""; }
   });
@@ -175,6 +274,6 @@
     } catch (e) { $("list").innerHTML = `<div class="empty">${esc(C.errText(e))}</div>`; }
   });
 </script>
-<script type="module" src="layout.js?v=9"></script>
+<script type="module" src="layout.js?v=10"></script>
 </body>
 </html>

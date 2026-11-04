@@ -1,0 +1,21 @@
+rules_version = '2';
+// Firebase Storage rules for Gyaan Hub (photos, videos and files in chats, posts and reels).
+// Firebase Console > Storage > Rules > paste this > Publish.
+service firebase.storage {
+  match /b/{bucket}/o {
+    // chat files: cid = smallerUid_largerUid, only the two people in the chat can open / upload
+    match /chat/{cid}/{file} {
+      allow read: if request.auth != null && request.auth.uid in cid.split('_');
+      allow create: if request.auth != null && request.auth.uid in cid.split('_')
+          && request.resource.size < 50 * 1024 * 1024;
+      allow delete: if request.auth != null && resource.metadata.by == request.auth.uid;
+    }
+    // posts and reels: any signed-in student can view, only the owner can upload / delete
+    match /posts/{uid}/{file} {
+      allow read: if request.auth != null;
+      allow create: if request.auth != null && request.auth.uid == uid
+          && request.resource.size < 50 * 1024 * 1024;
+      allow delete: if request.auth != null && request.auth.uid == uid;
+    }
+  }
+}

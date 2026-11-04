@@ -60,7 +60,15 @@
     brain: '<path d="M9 4a3 3 0 0 0-3 3 3 3 0 0 0-2 5 3.5 3.5 0 0 0 2.5 5.7A3 3 0 0 0 9 20a2 2 0 0 0 3-1.7V6a2 2 0 0 0-3-2z"/><path d="M15 4a3 3 0 0 1 3 3 3 3 0 0 1 2 5 3.5 3.5 0 0 1-2.5 5.7A3 3 0 0 1 15 20a2 2 0 0 1-3-1.7"/>',
     copy: '<rect x="8" y="8" width="12" height="12" rx="2"/><path d="M16 8V6a2 2 0 0 0-2-2H6a2 2 0 0 0-2 2v8a2 2 0 0 0 2 2h2"/>',
     send: '<path d="M21 3 3 10.5l7 3 3 7z"/><path d="M10 13.5 21 3"/>',
-    trend: '<path d="M3 17l6-6 4 4 8-8"/><path d="M15 7h6v6"/>'
+    trend: '<path d="M3 17l6-6 4 4 8-8"/><path d="M15 7h6v6"/>',
+    paperclip: '<path d="M21 11.5l-8.5 8.5a5 5 0 0 1-7-7l9-9a3.3 3.3 0 0 1 4.7 4.7l-9 9a1.7 1.7 0 0 1-2.4-2.4l8-8"/>',
+    heart: '<path d="M12 21s-8-5.2-8-11a4.5 4.5 0 0 1 8-2.8A4.5 4.5 0 0 1 20 10c0 5.8-8 11-8 11z"/>',
+    trash: '<path d="M4 7h16"/><path d="M9 7V4h6v3"/><path d="M6 7l1 13h10l1-13"/><path d="M10 11v6M14 11v6"/>',
+    image: '<rect x="3" y="4" width="18" height="16" rx="2"/><circle cx="9" cy="10" r="1.8"/><path d="M21 16l-5-5-8 9"/>',
+    file: '<path d="M14 3H7a2 2 0 0 0-2 2v14a2 2 0 0 0 2 2h10a2 2 0 0 0 2-2V8z"/><path d="M14 3v5h5"/>',
+    film: '<rect x="3" y="3" width="18" height="18" rx="3"/><path d="M3 9h18M9 3l3 6M15 3l3 6"/><path d="M10.5 13l4 2.5-4 2.5z"/>',
+    more: '<circle cx="5" cy="12" r="1.5" fill="currentColor"/><circle cx="12" cy="12" r="1.5" fill="currentColor"/><circle cx="19" cy="12" r="1.5" fill="currentColor"/>',
+    feed: '<rect x="3" y="3" width="18" height="18" rx="3"/><path d="M7 8h10M7 12h10M7 16h6"/>'
   };
   /* emoji  ->  icon name (":cls" adds a colour class) */
   var A = {

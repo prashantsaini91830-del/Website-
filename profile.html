@@ -4,10 +4,10 @@
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1.0">
 <title>Profile | Gyaan Hub</title>
-<link rel="stylesheet" href="style.css?v=9">
-<script src="site-config.js?v=9"></script>
-<script src="theme.js?v=9"></script>
-<script src="icons.js?v=9"></script>
+<link rel="stylesheet" href="style.css?v=10">
+<script src="site-config.js?v=10"></script>
+<script src="theme.js?v=10"></script>
+<script src="icons.js?v=10"></script>
 </head>
 <body>
 <header class="nav">
@@ -25,15 +25,17 @@
 </main>
 
 <script type="module">
-  import { protectPage } from "./auth.js?v=9";
-  import * as C from "./community.js?v=9";
+  import { protectPage } from "./auth.js?v=10";
+  import * as C from "./community.js?v=10";
+  import { initLightbox } from "./media.js?v=10";
+  initLightbox();
   const $ = id => document.getElementById(id);
   const { esc } = C;
   const ic = (n, c) => window.ic ? window.ic(n, c) : "";
   const params = new URLSearchParams(location.search);
   let me, myProf, prof, uid, isMe, rel, theirRel, blocked, stats, rank, fers, fing, msgOk, tests = [];
   let myFollowing = new Map(), myFollowers = new Map(), tab = params.get("tab") || "overview", lbRows = null;
-  const people = {};
+  const people = {}, postMap = {};
 
   /* ---------- helpers ---------- */
   function modal(html) {
@@ -145,8 +147,8 @@
     </div>`;
 
     const tabs = isMe
-      ? [["overview", "Overview", "user"], ["find", "Find people", "search"], ["followers", "Followers" + (fers ? " (" + fers.length + ")" : ""), "users"], ["following", "Following" + (fing ? " (" + fing.length + ")" : ""), "user-plus"], ["requests", "Requests" + (pend ? " (" + pend + ")" : ""), "hand"]]
-      : [["overview", "Overview", "user"], ["followers", "Followers" + (fers ? " (" + fers.length + ")" : ""), "users"], ["following", "Following" + (fing ? " (" + fing.length + ")" : ""), "user-plus"]];
+      ? [["overview", "Overview", "user"], ["posts", "Posts", "image"], ["reels", "Reels", "film"], ["feed", "Feed", "feed"], ["find", "Find people", "search"], ["followers", "Followers" + (fers ? " (" + fers.length + ")" : ""), "users"], ["following", "Following" + (fing ? " (" + fing.length + ")" : ""), "user-plus"], ["requests", "Requests" + (pend ? " (" + pend + ")" : ""), "hand"]]
+      : [["overview", "Overview", "user"], ["posts", "Posts", "image"], ["reels", "Reels", "film"], ["followers", "Followers" + (fers ? " (" + fers.length + ")" : ""), "users"], ["following", "Following" + (fing ? " (" + fing.length + ")" : ""), "user-plus"]];
     if (!tabs.some(t => t[0] === tab)) tab = "overview";
     $("app").innerHTML = head + `<div class="cm-tabs" id="tabs">${tabs.map(([k, l, i]) => `<button class="chip ${k === tab ? "on" : ""}" data-tab="${k}">${ic(i)} ${l}</button>`).join("")}</div><div id="panel"></div>`;
     $("panel").dataset.canSee = canSee ? "1" : "";
@@ -161,6 +163,9 @@
       return;
     }
     if (tab === "overview") p.innerHTML = overviewHtml();
+    else if (tab === "posts") postsTab("post");
+    else if (tab === "reels") postsTab("reel");
+    else if (tab === "feed") feedTab();
     else if (tab === "find") findTab();
     else if (tab === "followers") { p.innerHTML = `<div class="cm-list" id="lst"></div>`; peopleList($("lst"), fers, "follower", isMe ? "No followers yet. Share your Student ID with friends!" : "No followers yet."); }
     else if (tab === "following") { p.innerHTML = `<div class="cm-list" id="lst"></div>`; peopleList($("lst"), fing, "target", isMe ? "You are not following anyone yet. Try the Find people tab." : "Not following anyone yet."); }
@@ -199,6 +204,103 @@
           <div class="cm-idbox"><code>${C.fmtCode(code)}</code><button class="btn btn-ghost" data-act="copyid">${ic("copy")} Copy ID</button><button class="btn btn-ghost" data-act="copylink">${ic("link")} Copy profile link</button></div></div>`;
     }
     return out;
+  }
+
+  /* ---------- posts, reels and feed ---------- */
+  function postCard(p, a, likes) {
+    const mine = p.uid === me.uid, enc = encodeURIComponent(p.uid), id = esc(p.id), liked = likes.includes(me.uid);
+    return `<article class="pp-card" data-pid="${id}">
+      <header class="pp-head"><a href="profile.html?u=${enc}">${C.avatarHtml(a, "sm")}</a>
+        <div class="grow"><a href="profile.html?u=${enc}"><b data-keep>${esc(a.name)}</b></a><small>${p.kind === "reel" ? "Reel" : "Post"} · ${dateTxt(p.ts || Date.now())}${p.edited ? " · edited" : ""}</small></div>
+        ${mine ? `<div class="cm-menu"><button class="btn btn-ghost" data-act="pmenu" data-id="${id}" aria-label="Post options" style="padding:6px 12px">${ic("more")}</button>
+          <div class="cm-menu-pop pp-pop" data-for="${id}"><button data-act="pedit" data-id="${id}">${ic("pencil")} Edit caption</button><button data-act="pdel" data-id="${id}">${ic("trash")} Delete</button></div></div>` : ""}</header>
+      ${p.media ? `<div class="pp-media ${p.kind === "reel" ? "reel" : ""}" data-pm="${id}"><div class="skel"></div></div>` : ""}
+      ${p.caption ? `<p class="pp-cap" data-keep>${esc(p.caption)}</p>` : ""}
+      <footer class="pp-foot"><button class="pp-like ${liked ? "on" : ""}" data-act="plike" data-id="${id}">${ic("heart")} <span>${likes.length}</span></button></footer></article>`;
+  }
+  const reelWatch = typeof IntersectionObserver === "function" ? new IntersectionObserver(es => es.forEach(en => { const v = en.target; if (en.isIntersecting && en.intersectionRatio > 0.6) { v.muted = true; v.play().catch(() => {}); } else v.pause(); }), { threshold: [0, 0.6, 1] }) : null;
+  function hydratePosts(box, rows) {
+    rows.forEach(p => {
+      if (!p.media) return;
+      const el = box.querySelector(`[data-pm="${CSS.escape(p.id)}"]`); if (!el) return;
+      C.F.fileUrl(p.media, { type: "post" }).then(url => {
+        const u = esc(url);
+        el.innerHTML = p.media.kind === "video" ? `<video controls playsinline preload="metadata" ${p.kind === "reel" ? "loop muted" : ""} src="${u}"></video>` : `<img class="zoomable" src="${u}" alt="" loading="lazy" referrerpolicy="no-referrer">`;
+        const v = el.querySelector("video"); if (v && p.kind === "reel" && reelWatch) reelWatch.observe(v);
+      }).catch(() => { el.innerHTML = `<div class="empty">This media is not available.</div>`; });
+    });
+  }
+  async function paintPosts(box, rows, emptyMsg) {
+    if (!rows.length) { box.innerHTML = `<div class="empty">${emptyMsg}</div>`; return; }
+    const authors = await C.profilesOf([...new Set(rows.map(r => r.uid))]);
+    const amap = Object.fromEntries(authors.map(a => [a.id, a]));
+    const likes = await Promise.all(rows.map(r => C.likesOf(r.id)));
+    if (!box.isConnected) return;                       // the tab was changed while loading
+    rows.forEach((r, i) => { postMap[r.id] = { ...r, likes: likes[i] }; });
+    box.innerHTML = rows.map((r, i) => postCard(r, amap[r.uid] || { name: "Student" }, likes[i])).join("");
+    hydratePosts(box, rows);
+  }
+  async function postsTab(kind) {
+    const el = $("panel");
+    const head = isMe ? `<div class="pp-new"><button class="btn btn-gold" data-act="newpost" data-kind="${kind}">${ic(kind === "reel" ? "film" : "plus")} New ${kind}</button><small>${kind === "reel" ? "Short videos, up to " + C.F.MAX_REEL_SECONDS + " seconds." : "Share a photo, a video or just a thought."}</small></div>` : "";
+    el.innerHTML = `${head}<div id="plist" class="pp-list"><div class="skel"></div></div>`;
+    try { await paintPosts($("plist"), await C.listPosts(uid, kind), isMe ? `You have no ${kind}s yet. Tap <b>New ${kind}</b> to add one.` : `No ${kind}s yet.`); }
+    catch (e) { const b = $("plist"); if (b) b.innerHTML = `<div class="empty">${esc(C.errText(e))}</div>`; }
+  }
+  async function feedTab() {
+    const ids = [me.uid, ...[...myFollowing.values()].filter(f => f.status === "accepted").map(f => f.target)];
+    $("panel").innerHTML = `<div id="plist" class="pp-list"><div class="skel"></div></div>`;
+    try { await paintPosts($("plist"), await C.feedPosts(ids), "Nothing here yet. Follow students (Find people tab) or share your first post."); }
+    catch (e) { const b = $("plist"); if (b) b.innerHTML = `<div class="empty">${esc(C.errText(e))}</div>`; }
+  }
+  function openCreate(kind) {
+    let file = null, prevUrl = "", busy = false;
+    const reel = kind === "reel";
+    const m = modal(`<h2>New ${kind}<button class="cm-x" aria-label="Close">✕</button></h2>
+      <div class="cm-field"><label>${reel ? "Video (up to " + C.F.MAX_REEL_SECONDS + " seconds)" : "Photo or video (optional)"}</label>
+        <button class="btn btn-ghost" id="c-pick" type="button">${ic(reel ? "film" : "image")} Choose ${reel ? "video" : "photo / video"}</button>
+        <input type="file" id="c-file" hidden accept="${reel ? "video/*" : "image/*,video/*"}"><div id="c-prev" class="pp-prev"></div></div>
+      <div class="cm-field"><label for="c-cap">Caption</label><textarea id="c-cap" maxlength="500" rows="3" placeholder="Write something..."></textarea></div>
+      <div class="cm-msg" id="c-msg"></div><div class="cm-pbar" id="c-bar" hidden><i></i></div>
+      <div class="cm-actions"><button class="btn btn-gold" id="c-go">Post</button><button class="btn btn-ghost cm-x" type="button">Cancel</button></div>`);
+    const q = id => m.el.querySelector("#" + id);
+    q("c-pick").addEventListener("click", () => q("c-file").click());
+    q("c-file").addEventListener("change", async e => {
+      const f = e.target.files[0]; e.target.value = "";
+      if (!f) return;
+      const k = C.F.kindOf(f);
+      if (reel && k !== "video") return say(q("c-msg"), "Please choose a video file for a reel.", "err");
+      if (k !== "image" && k !== "video") return say(q("c-msg"), "Please choose a photo or a video.", "err");
+      if (f.size > C.F.MAX_STORAGE_MB * 1048576) return say(q("c-msg"), "This file is too big. The limit is " + C.F.MAX_STORAGE_MB + " MB.", "err");
+      if (k === "video") { const d = await C.F.videoDuration(f); if (d > C.F.MAX_REEL_SECONDS + 0.5) return say(q("c-msg"), "This video is " + Math.round(d) + " seconds long. The limit is " + C.F.MAX_REEL_SECONDS + " seconds.", "err"); }
+      file = f; say(q("c-msg"), "");
+      if (prevUrl) URL.revokeObjectURL(prevUrl);
+      prevUrl = URL.createObjectURL(f);
+      q("c-prev").innerHTML = k === "video" ? `<video src="${prevUrl}" controls playsinline muted></video>` : `<img src="${prevUrl}" alt="">`;
+    });
+    q("c-go").addEventListener("click", async () => {
+      if (busy) return;
+      if (reel && !file) return say(q("c-msg"), "Please choose a video first.", "err");
+      busy = true; q("c-go").disabled = true; say(q("c-msg"), "Uploading... please keep this window open.");
+      try {
+        await C.createPost(me, { kind, caption: q("c-cap").value, file }, p => { const b = q("c-bar"); b.hidden = false; b.firstElementChild.style.width = Math.round(p * 100) + "%"; });
+        if (prevUrl) URL.revokeObjectURL(prevUrl);
+        m.close(); tab = reel ? "reels" : "posts"; renderTab(); C.toast(reel ? "Reel uploaded" : "Post uploaded", 2500);
+      } catch (err) { say(q("c-msg"), err && err.code ? C.errText(err) : (err.message || "Could not upload."), "err"); q("c-go").disabled = false; busy = false; }
+    });
+  }
+  function openEditPost(p) {
+    const m = modal(`<h2>Edit caption<button class="cm-x" aria-label="Close">✕</button></h2>
+      <div class="cm-field"><textarea id="p-cap" maxlength="500" rows="4"></textarea></div><div class="cm-msg" id="p-msg"></div>
+      <div class="cm-actions"><button class="btn btn-gold" id="p-go">Save</button><button class="btn btn-ghost cm-x" type="button">Cancel</button></div>`);
+    const t = m.el.querySelector("#p-cap"); t.value = p.caption || ""; t.focus();
+    m.el.querySelector("#p-go").addEventListener("click", async () => {
+      const go = m.el.querySelector("#p-go"); go.disabled = true;
+      try {
+        if (!t.value.trim() && !p.media) throw new Error("A post needs a caption or a photo/video.");
+        await C.editPost(p.id, t.value); m.close(); renderTab(); C.toast("Caption updated", 2200);
+      } catch (e) { say(m.el.querySelector("#p-msg"), e && e.code ? C.errText(e) : e.message, "err"); go.disabled = false; }
+    });
   }
 
   /* ---------- find people (name or Student ID) ---------- */
@@ -310,6 +412,7 @@
   /* ---------- clicks ---------- */
   document.addEventListener("click", async e => {
     const pop = $("pop"); if (pop && !e.target.closest(".cm-menu")) pop.classList.remove("open");
+    if (!e.target.closest(".cm-menu")) document.querySelectorAll(".pp-pop.open").forEach(x => x.classList.remove("open"));
     const tb = e.target.closest("[data-tab]");
     if (tb && !tb.dataset.act) { tab = tb.dataset.tab; renderTab(); window.scrollTo({ top: 0, behavior: "smooth" }); return; }
     const b = e.target.closest("[data-act]"); if (!b) return;
@@ -325,6 +428,20 @@
       else if (act === "punfollow") { b.disabled = true; await C.unfollow(me.uid, id); await afterRelChange(); }
       else if (act === "accept") { await C.acceptRequest(me.uid, id); await load(); }
       else if (act === "decline") { await C.declineRequest(me.uid, id); await load(); }
+      else if (act === "newpost") openCreate(b.dataset.kind);
+      else if (act === "pmenu") { document.querySelectorAll(".pp-pop.open").forEach(x => { if (x.dataset.for !== id) x.classList.remove("open"); }); const pp = document.querySelector(`.pp-pop[data-for="${CSS.escape(id)}"]`); if (pp) pp.classList.toggle("open"); }
+      else if (act === "pedit") { document.querySelectorAll(".pp-pop.open").forEach(x => x.classList.remove("open")); if (postMap[id]) openEditPost(postMap[id]); }
+      else if (act === "pdel") {
+        document.querySelectorAll(".pp-pop.open").forEach(x => x.classList.remove("open"));
+        if (postMap[id] && confirm("Delete this " + postMap[id].kind + "? This cannot be undone.")) { await C.deletePost(postMap[id]); delete postMap[id]; C.toast("Deleted", 2000); renderTab(); }
+      }
+      else if (act === "plike") {
+        const p = postMap[id]; if (!p) return;
+        b.disabled = true;
+        const liked = p.likes.includes(me.uid);
+        if (liked) { await C.unlikePost(id, me.uid); p.likes = p.likes.filter(u => u !== me.uid); } else { await C.likePost(id, me.uid); p.likes.push(me.uid); }
+        b.classList.toggle("on", !liked); b.querySelector("span:last-child").textContent = p.likes.length; b.disabled = false;
+      }
       else if (act === "report") { pop.classList.remove("open"); openReport(); }
       else if (act === "block") { pop.classList.remove("open"); if (confirm("Block " + prof.name + "? They will not be able to follow or message you.")) { await C.blockUser(me.uid, uid); await load(); } }
       else if (act === "unblock") { await C.unblockUser(me.uid, uid); await load(); }
@@ -358,6 +475,6 @@
     }
   });
 </script>
-<script type="module" src="layout.js?v=9"></script>
+<script type="module" src="layout.js?v=10"></script>
 </body>
 </html>

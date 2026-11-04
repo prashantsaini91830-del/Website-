@@ -22,6 +22,8 @@ A static study-materials portal with Firebase Authentication. (The site name can
 - **Profile tab** in the menu (`profile.html`): overview with progress chart and recent tests, Find people (by name or Student ID), followers, following and follow requests in one place
 - **Student ID** (SHA-256 hash of the account id, shown as `XXXX-XXXX`): search by ID or open `profile.html?c=XXXXXXXX` to reach any student, even a private one
 - **Student Community** (`community.html`, `profile.html`, `messages.html`): profile with avatar/bio/course, follow & followers, course-wise leaderboard, private profiles with follow requests, hide-my-rank, direct messages with block and report (reports are reviewed in `moderation.html`, admins only)
+- **Chat extras:** unsend and edit your own messages, and send photos, videos, audio, PDFs, APK files, ZIPs and any other document (paperclip button; you can also paste an image)
+- **Posts & reels:** upload a post (photo / video / text) or a reel (video up to 90 seconds) from Profile, edit the caption, delete, like, and see a Feed of the students you follow
 - Responsive dark design with no build step
 
 ## Project structure
@@ -45,6 +47,8 @@ A static study-materials portal with Firebase Authentication. (The site name can
 | `community.html` / `profile.html` / `messages.html` | Student Community: leaderboard + find students, profiles, chat |
 | `icons.js` | Vector icon set + automatic emoji-to-SVG conversion |
 | `community.js` | All community logic (uses the same Firebase project as `auth.js`) |
+| `files.js` | Uploads / downloads of chat files, post photos and reels (Firebase Storage, with an automatic database fallback) |
+| `storage.rules` | Firebase Storage rules (paste in Firebase Console > Storage > Rules) |
 | `moderation.html` | Admin-only list of student reports |
 | `firestore.rules` | Same rules as below, as a ready file to paste |
 | `style.css` | Shared styles |
@@ -213,11 +217,50 @@ service cloud.firestore {
         allow create: if signedIn()
             && request.resource.data.from == request.auth.uid
             && request.resource.data.to in chat().participants && request.resource.data.to != request.auth.uid
-            && request.resource.data.text is string && request.resource.data.text.size() > 0 && request.resource.data.text.size() <= 1000
+            && request.resource.data.text is string && request.resource.data.text.size() <= 1000
+            && (request.resource.data.text.size() > 0 || request.resource.data.get("att", null) != null)
+            && (request.resource.data.get("att", null) == null || request.resource.data.att is map)
             && !blockedEither(chat().participants)
             && dmAllowed(request.resource.data.to, request.auth.uid);
+        // edit or unsend: only the sender, only these fields
+        allow update: if signedIn() && resource.data.from == request.auth.uid
+            && request.resource.data.diff(resource.data).affectedKeys().hasOnly(["text", "edited", "editedAt", "deleted", "att", "updatedAt"])
+            && request.resource.data.text is string && request.resource.data.text.size() <= 1000;
         allow delete: if signedIn() && resource.data.from == request.auth.uid;
       }
+      match /files/{fid} {                 // attachment pieces (used when Firebase Storage is not enabled)
+        function chatPeople() { return get(/databases/$(database)/documents/chats/$(cid)).data.participants; }
+        allow read: if signedIn() && request.auth.uid in chatPeople();
+        allow create: if signedIn() && request.auth.uid in chatPeople()
+            && request.resource.data.by == request.auth.uid
+            && request.resource.data.d is string && request.resource.data.d.size() <= 900000
+            && !blockedEither(chatPeople());
+        allow delete: if signedIn() && resource.data.by == request.auth.uid;
+      }
+    }
+    // ---- posts & reels ----
+    match /posts/{pid} {
+      allow read: if signedIn() && (resource == null
+          || resource.data.uid == request.auth.uid
+          || ((!isPrivateProfile(resource.data.uid) || isAccFollower(resource.data.uid))
+              && !exists(/databases/$(database)/documents/blocks/$(resource.data.uid + "_" + request.auth.uid))));
+      allow create: if signedIn() && request.resource.data.uid == request.auth.uid
+          && request.resource.data.kind in ["post", "reel"]
+          && request.resource.data.caption is string && request.resource.data.caption.size() <= 500;
+      allow update: if signedIn() && resource.data.uid == request.auth.uid
+          && request.resource.data.diff(resource.data).affectedKeys().hasOnly(["caption", "edited", "editedAt", "updatedAt"])
+          && request.resource.data.caption is string && request.resource.data.caption.size() <= 500;
+      allow delete: if signedIn() && (resource.data.uid == request.auth.uid || isAdmin());
+      match /likes/{u} {
+        allow read: if signedIn();
+        allow write: if signedIn() && request.auth.uid == u;
+      }
+    }
+    match /postFiles/{fid} {               // photo / video pieces of posts (used when Firebase Storage is not enabled)
+      allow read: if signedIn();
+      allow create: if signedIn() && request.resource.data.by == request.auth.uid
+          && request.resource.data.d is string && request.resource.data.d.size() <= 900000;
+      allow delete: if signedIn() && (resource.data.by == request.auth.uid || isAdmin());
     }
     match /communityReports/{id} {          // reports: anyone can send, only admins can read
       allow create: if signedIn() && request.resource.data.reporter == request.auth.uid;
@@ -251,3 +294,11 @@ Create the document `admins/<your UID>` (field `role` = `admin`) in the Firebase
 - The Student ID is `sha256("gyaan-hub:" + uid)`, first 40 bits as 8 Crockford-base32 characters. It is stored in `profiles/{uid}.code` so it can be searched. A search result is accepted only if the hash of the result's owner id gives the same code, so nobody can claim someone else's ID.
 - Name search lists public profiles only. Private profiles are found only by exact Student ID (they can then be sent a follow request).
 - Republish `firestore.rules` once more: the `profiles` rule now allows the `code` field.
+
+## Photos, videos and files (chat attachments, posts, reels)
+- **Republish `firestore.rules`** (new: message edit/unsend, `chats/{id}/files`, `posts`, `postFiles`). Without it the new features show "Not allowed".
+- **Best setup - Firebase Storage:** Firebase Console > Build > Storage > Get started, then paste `storage.rules` and Publish. Files up to 50 MB (APKs, longer videos) are then uploaded there. Newer Firebase projects need the pay-as-you-go (Blaze) plan to turn Storage on; there is a free monthly quota.
+- **Without Storage:** the site automatically saves files inside Firestore in small pieces. This works on the free plan but only for files up to **10 MB**; bigger files show a clear message. Edit `MAX_STORAGE_MB`, `MAX_FALLBACK_MB`, `MAX_REEL_SECONDS` at the top of `files.js`.
+- Blocked file types: `.exe .msi .bat .cmd .scr .vbs .ps1 .com .pif` (list `BLOCKED` in `files.js`). APK, PDF, ZIP, Office files, images, videos and audio are allowed. APK files show a "only open if you trust the sender" note.
+- **Unsend** replaces the message with "This message was unsent" for both people and deletes the attached file. **Edit** changes text / caption only and shows "edited".
+- Menu order: the **Profile** tab is now the last item of the left menu.

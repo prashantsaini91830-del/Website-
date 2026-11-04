@@ -135,11 +135,50 @@ service cloud.firestore {
         allow create: if signedIn()
             && request.resource.data.from == request.auth.uid
             && request.resource.data.to in chat().participants && request.resource.data.to != request.auth.uid
-            && request.resource.data.text is string && request.resource.data.text.size() > 0 && request.resource.data.text.size() <= 1000
+            && request.resource.data.text is string && request.resource.data.text.size() <= 1000
+            && (request.resource.data.text.size() > 0 || request.resource.data.get("att", null) != null)
+            && (request.resource.data.get("att", null) == null || request.resource.data.att is map)
             && !blockedEither(chat().participants)
             && dmAllowed(request.resource.data.to, request.auth.uid);
+        // edit or unsend: only the sender, only these fields
+        allow update: if signedIn() && resource.data.from == request.auth.uid
+            && request.resource.data.diff(resource.data).affectedKeys().hasOnly(["text", "edited", "editedAt", "deleted", "att", "updatedAt"])
+            && request.resource.data.text is string && request.resource.data.text.size() <= 1000;
         allow delete: if signedIn() && resource.data.from == request.auth.uid;
       }
+      match /files/{fid} {                 // attachment pieces (used when Firebase Storage is not enabled)
+        function chatPeople() { return get(/databases/$(database)/documents/chats/$(cid)).data.participants; }
+        allow read: if signedIn() && request.auth.uid in chatPeople();
+        allow create: if signedIn() && request.auth.uid in chatPeople()
+            && request.resource.data.by == request.auth.uid
+            && request.resource.data.d is string && request.resource.data.d.size() <= 900000
+            && !blockedEither(chatPeople());
+        allow delete: if signedIn() && resource.data.by == request.auth.uid;
+      }
+    }
+    // ---- posts & reels ----
+    match /posts/{pid} {
+      allow read: if signedIn() && (resource == null
+          || resource.data.uid == request.auth.uid
+          || ((!isPrivateProfile(resource.data.uid) || isAccFollower(resource.data.uid))
+              && !exists(/databases/$(database)/documents/blocks/$(resource.data.uid + "_" + request.auth.uid))));
+      allow create: if signedIn() && request.resource.data.uid == request.auth.uid
+          && request.resource.data.kind in ["post", "reel"]
+          && request.resource.data.caption is string && request.resource.data.caption.size() <= 500;
+      allow update: if signedIn() && resource.data.uid == request.auth.uid
+          && request.resource.data.diff(resource.data).affectedKeys().hasOnly(["caption", "edited", "editedAt", "updatedAt"])
+          && request.resource.data.caption is string && request.resource.data.caption.size() <= 500;
+      allow delete: if signedIn() && (resource.data.uid == request.auth.uid || isAdmin());
+      match /likes/{u} {
+        allow read: if signedIn();
+        allow write: if signedIn() && request.auth.uid == u;
+      }
+    }
+    match /postFiles/{fid} {               // photo / video pieces of posts (used when Firebase Storage is not enabled)
+      allow read: if signedIn();
+      allow create: if signedIn() && request.resource.data.by == request.auth.uid
+          && request.resource.data.d is string && request.resource.data.d.size() <= 900000;
+      allow delete: if signedIn() && (resource.data.by == request.auth.uid || isAdmin());
     }
     match /communityReports/{id} {          // reports: anyone can send, only admins can read
       allow create: if signedIn() && request.resource.data.reporter == request.auth.uid;

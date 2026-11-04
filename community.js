@@ -1,9 +1,10 @@
 // Gyaan Hub - Student Community (profiles, follow, rank, messages, block / report)
 // Uses the SAME Firebase project and helpers as the rest of the site (auth.js). No new keys, no new services.
-import * as A from "./auth.js?v=9";
-import { squareAvatar } from "./media.js?v=9";
+import * as A from "./auth.js?v=10";
+import { squareAvatar } from "./media.js?v=10";
+import * as F from "./files.js?v=10";
 
-export { A, squareAvatar };
+export { A, squareAvatar, F };
 export const esc = s => String(s ?? "").replace(/[&<>"']/g, c => ({ "&": "&amp;", "<": "&lt;", ">": "&gt;", '"': "&quot;", "'": "&#39;" }[c]));
 // Vector avatars (id -> icon + gradient). Stored in the profile as "preset:<id>".
 export const AVATARS = {
@@ -284,13 +285,62 @@ export const isUnread = (chat, me) => chat.lastFrom && chat.lastFrom !== me && c
 export async function unreadCount(me) { try { return (await listChats(me)).filter(c => isUnread(c, me)).length; } catch (e) { return 0; } }
 export async function chatExists(cid) { try { return !!(await A.fsGetPath(["chats", cid])); } catch (e) { return false; } }
 export const markSeen = (cid, me) => A.fsSetPath(["chats", cid], { ["seen_" + me]: Date.now() }).catch(() => {});
-export async function sendMessage(me, other, text) {
+export async function ensureChat(me, other) {
   const cid = chatId(me, other), parts = [me, other].sort();
-  text = String(text).trim().slice(0, 1000);
-  if (!text) return cid;
   if (!(await chatExists(cid))) await A.fsSetPath(["chats", cid], { participants: parts, lastTs: 0 }, false);
-  const id = Date.now().toString(36) + Math.random().toString(36).slice(2, 8), now = Date.now();
-  await A.fsSetPath(["chats", cid, "messages", id], { from: me, to: other, text, ts: now }, false);
-  await A.fsSetPath(["chats", cid], { lastText: text.slice(0, 80), lastFrom: me, lastTs: now, ["seen_" + me]: now });
   return cid;
 }
+// text and/or one attachment (att comes from F.uploadFile)
+export async function sendMessage(me, other, text, att) {
+  const cid = chatId(me, other);
+  text = String(text || "").trim().slice(0, 1000);
+  if (!text && !att) return cid;
+  await ensureChat(me, other);
+  const id = Date.now().toString(36) + Math.random().toString(36).slice(2, 8), now = Date.now();
+  const msg = { from: me, to: other, text, ts: now };
+  if (att) msg.att = att;
+  await A.fsSetPath(["chats", cid, "messages", id], msg, false);
+  await A.fsSetPath(["chats", cid], { lastText: (text || F.attLabel(att)).slice(0, 80), lastFrom: me, lastTs: now, ["seen_" + me]: now });
+  return cid;
+}
+// Edit my own message (text / caption only)
+export async function editMessage(cid, m, newText, isLast) {
+  newText = String(newText || "").trim().slice(0, 1000);
+  if (!newText && !m.att) throw new Error("A message cannot be empty.");
+  await A.fsSetPath(["chats", cid, "messages", m.id], { text: newText, edited: true, editedAt: Date.now() });
+  if (isLast) await A.fsSetPath(["chats", cid], { lastText: (newText || F.attLabel(m.att)).slice(0, 80) }).catch(() => {});
+  return newText;
+}
+// Unsend my own message: the text and the attached file are removed for both people
+export async function unsendMessage(cid, m, isLast) {
+  await A.fsSetPath(["chats", cid, "messages", m.id], { deleted: true, text: "", att: null, edited: false });
+  if (m.att) F.deleteFile(m.att, { type: "chat", cid });
+  if (isLast) await A.fsSetPath(["chats", cid], { lastText: "Message unsent" }).catch(() => {});
+}
+
+/* ---------- posts & reels ---------- */
+// posts/{id}: { uid, kind: "post" | "reel", caption, media: attachment | null, ts, edited? }   likes: posts/{id}/likes/{uid}
+export async function createPost(me, { kind, caption, file }, onProgress) {
+  caption = String(caption || "").trim().slice(0, 500);
+  if (!file && !caption) throw new Error("Add a photo, a video or some text.");
+  const media = file ? await F.uploadFile(file, { type: "post", uid: me.uid }, onProgress) : null;
+  const id = Date.now().toString(36) + Math.random().toString(36).slice(2, 8);
+  await A.fsSetPath(["posts", id], { uid: me.uid, kind, caption, media, ts: Date.now() }, false);
+  return id;
+}
+export async function listPosts(uid, kind) {
+  const rows = await A.fsWhere("posts", [["uid", "==", uid]]);
+  return rows.filter(p => !kind || p.kind === kind).sort((a, b) => (b.ts || 0) - (a.ts || 0));
+}
+export async function feedPosts(uids, perUser = 6, max = 30) {
+  const lists = await Promise.all(uids.slice(0, 15).map(u => listPosts(u).then(r => r.slice(0, perUser)).catch(() => [])));
+  return lists.flat().sort((a, b) => (b.ts || 0) - (a.ts || 0)).slice(0, max);
+}
+export const editPost = (id, caption) => A.fsSetPath(["posts", id], { caption: String(caption || "").trim().slice(0, 500), edited: true, editedAt: Date.now() });
+export async function deletePost(p) {
+  await A.fsDeletePath(["posts", p.id]);
+  if (p.media) F.deleteFile(p.media, { type: "post" });
+}
+export async function likesOf(id) { try { return (await A.fsListPath(["posts", id, "likes"])).map(x => x.id); } catch (e) { return []; } }
+export const likePost = (id, me) => A.fsSetPath(["posts", id, "likes", me], { uid: me });
+export const unlikePost = (id, me) => A.fsDeletePath(["posts", id, "likes", me]);
