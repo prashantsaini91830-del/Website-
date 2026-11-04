@@ -12,7 +12,7 @@
 <link rel="modulepreload" href="auth.js?v=13">
 <link rel="modulepreload" href="community.js?v=13">
 <link rel="modulepreload" href="files.js?v=13">
-<link rel="stylesheet" href="style.css?v=13">
+<link rel="stylesheet" href="style.css?v=14">
 <script src="site-config.js?v=13"></script>
 <script src="theme.js?v=13"></script>
 <script src="icons.js?v=13"></script>
@@ -24,7 +24,7 @@
   #feed::-webkit-scrollbar{display:none}
   .rv-item{position:relative;width:100%;height:100vh;height:100dvh;scroll-snap-align:start;scroll-snap-stop:always;background:#000;overflow:hidden}
   .rv-item video{position:absolute;inset:0;width:100%;height:100%;object-fit:cover;background:#000}
-  .rv-shade{position:absolute;inset:0;pointer-events:none;background:linear-gradient(180deg,rgba(0,0,0,.45) 0,transparent 18%,transparent 55%,rgba(0,0,0,.78) 100%)}
+  .rv-shade{position:absolute;inset:0;pointer-events:none;background:linear-gradient(180deg,rgba(0,0,0,.45) 0,transparent 18%,transparent 50%,rgba(0,0,0,.82) 100%)}
   .rv-tap{position:absolute;inset:0;z-index:1;background:none;border:0;width:100%;cursor:pointer;-webkit-tap-highlight-color:transparent}
   .rv-state{position:absolute;left:50%;top:50%;z-index:2;width:76px;height:76px;margin:-38px 0 0 -38px;border-radius:50%;background:rgba(0,0,0,.5);display:grid;place-items:center;color:#fff;opacity:0;transform:scale(.7);pointer-events:none;transition:.25s}
   .rv-state.show{opacity:1;transform:scale(1)}
@@ -45,7 +45,7 @@
   .rv-seg button{border:0;background:none;color:rgba(255,255,255,.75);font:inherit;font-weight:600;font-size:.88rem;padding:6px 16px;border-radius:999px;cursor:pointer}
   .rv-seg button.on{background:#fff;color:#111}
   /* right action rail */
-  .rv-rail{position:absolute;right:10px;bottom:calc(86px + env(safe-area-inset-bottom));z-index:5;display:flex;flex-direction:column;align-items:center;gap:16px}
+  .rv-rail{position:absolute;right:8px;bottom:calc(86px + env(safe-area-inset-bottom));z-index:5;display:flex;flex-direction:column;align-items:center;gap:18px}
   .rv-btn{display:flex;flex-direction:column;align-items:center;gap:3px;background:none;border:0;color:#fff;font:inherit;font-size:.78rem;font-weight:600;cursor:pointer;text-shadow:0 1px 4px rgba(0,0,0,.7);-webkit-tap-highlight-color:transparent}
   .rv-btn .vi svg{width:30px;height:30px;filter:drop-shadow(0 1px 4px rgba(0,0,0,.6));transition:transform .2s}
   .rv-btn:active .vi svg{transform:scale(.85)}
@@ -54,10 +54,14 @@
   .rv-btn.on:not(.like){color:var(--gold2)}
   /* bottom info */
   .rv-info{position:absolute;left:0;right:76px;bottom:calc(18px + env(safe-area-inset-bottom));z-index:5;padding:0 14px;color:#fff;text-shadow:0 1px 6px rgba(0,0,0,.7)}
-  .rv-by{display:flex;align-items:center;gap:10px;margin-bottom:8px}
-  .rv-by .avatar{width:38px;height:38px;border:2px solid #fff}
-  .rv-by b{font-weight:700;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
-  .rv-fol{border:1px solid #fff;background:none;color:#fff;border-radius:8px;font:inherit;font-weight:600;font-size:.8rem;padding:4px 12px;cursor:pointer}
+  .rv-by{display:flex;align-items:center;gap:10px;margin-bottom:10px}
+  .rv-by .rv-ava{position:relative;display:block;flex:none;width:44px;height:44px;border-radius:50%;padding:2px;background:linear-gradient(45deg,#feda75,#fa7e1e,#d62976,#962fbf,#4f5bd5)}
+  .rv-by .rv-ava .avatar{width:100%;height:100%;border:2px solid #000;box-sizing:border-box;font-size:1rem}
+  .rv-by .rv-who{display:flex;flex-direction:column;min-width:0;line-height:1.2}
+  .rv-by .rv-who b{font-weight:700;font-size:.95rem;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;max-width:46vw}
+  .rv-by .rv-who small{font-size:.72rem;opacity:.8;font-weight:500}
+  .rv-by .rv-name{color:#fff}
+  .rv-fol{border:1px solid rgba(255,255,255,.9);background:rgba(255,255,255,.12);backdrop-filter:blur(4px);color:#fff;border-radius:8px;font:inherit;font-weight:700;font-size:.8rem;padding:5px 14px;cursor:pointer;margin-left:2px}
   .rv-fol[disabled]{opacity:.6}
   .rv-cap{font-size:.92rem;line-height:1.4;display:-webkit-box;-webkit-line-clamp:2;-webkit-box-orient:vertical;overflow:hidden;white-space:pre-wrap;word-break:break-word;cursor:pointer}
   .rv-cap.open{-webkit-line-clamp:unset;max-height:30vh;overflow:auto;display:block}
@@ -162,8 +166,8 @@
         <button class="rv-btn" data-act="save" aria-label="Save">${ic("bookmark")}<span>Save</span></button>
       </div>
       <div class="rv-info">
-        <div class="rv-by"><a href="profile.html?u=${encodeURIComponent(p.uid)}">${C.avatarHtml(a)}</a>
-          <a href="profile.html?u=${encodeURIComponent(p.uid)}"><b data-keep>${esc(a.name || "Student")}</b></a>
+        <div class="rv-by"><a class="rv-ava" href="profile.html?u=${encodeURIComponent(p.uid)}" aria-label="Profile">${C.avatarHtml(a)}</a>
+          <a class="rv-who" href="profile.html?u=${encodeURIComponent(p.uid)}"><b class="rv-name" data-keep>${esc(a.name || "Student")}</b></a>
           ${canFollow ? `<button class="rv-fol" data-act="follow" data-u="${esc(p.uid)}">Follow</button>` : ""}</div>
         ${p.caption ? `<div class="rv-cap" data-act="cap" data-keep>${esc(p.caption)}</div>` : ""}
       </div>
@@ -192,30 +196,51 @@
     savedSet = await C.savedIds(me.uid);
     feed.innerHTML = rows.map((r, i) => itemHtml(r, am[r.uid] || { name: "Student" }, i)).join("");
     feed.scrollTop = 0;
+    active = -1;
+    for (let k = 0; k <= AHEAD; k++) ensureSrc(k);          // first reel + next 3 start loading right now
     watcher.disconnect();
     feed.querySelectorAll(".rv-item").forEach(el => watcher.observe(el));
   }
 
   /* ---------- playback: only the visible reel plays, neighbours are pre-loaded ---------- */
+  const AHEAD = 3, BEHIND = 1;
   function ensureSrc(i) {
     const el = feed.querySelector(`.rv-item[data-i="${i}"]`); if (!el) return;
-    const v = el.querySelector("video"); if (!v || v.dataset.src) return;
+    const v = el.querySelector("video"); if (!v) return;
+    if (v.dataset.src) {                                    // already requested: just upgrade preload for the ones that are close
+      if (i !== active && v.preload !== "auto") v.preload = "auto";
+      return;
+    }
     v.dataset.src = "1";
+    v.preload = "auto";                                     // download the whole file in the background, not only metadata
     const p = items[i];
     C.F.fileUrl(p.media, { type: "post" }).then(url => {
-      v.src = url; v.preload = i === active ? "auto" : "metadata";
+      v.src = url; v.load();
       v.addEventListener("loadeddata", () => { const s = el.querySelector(".rv-spin"); if (s) s.remove(); }, { once: true });
       v.addEventListener("playing", () => { const s = el.querySelector(".rv-spin"); if (s) s.remove(); }, { once: true });
+      v.addEventListener("waiting", () => { if (i === active && !el.querySelector(".rv-spin")) { const d = document.createElement("div"); d.className = "rv-spin"; el.insertBefore(d, el.querySelector(".rv-shade")); } });
+      v.addEventListener("canplay", () => { const s = el.querySelector(".rv-spin"); if (s && i === active) s.remove(); });
       v.addEventListener("timeupdate", () => { const b = el.querySelector(".rv-prog i"); if (b && v.duration) b.style.width = (v.currentTime / v.duration * 100) + "%"; });
       if (i === active) play(v);
     }).catch(() => { const s = el.querySelector(".rv-spin"); if (s) s.outerHTML = `<div class="rv-msg" style="z-index:1"><p>This reel is not available.</p></div>`; });
+  }
+  // load the current reel first, then the next 3 (and 1 behind) so swiping is instant
+  function preloadAround(i) {
+    ensureSrc(i);
+    for (let k = 1; k <= AHEAD; k++) ensureSrc(i + k);
+    for (let k = 1; k <= BEHIND; k++) ensureSrc(i - k);
+    // free memory of reels we have left far behind
+    feed.querySelectorAll(".rv-item video[data-src]").forEach(v => {
+      const k = +v.closest(".rv-item").dataset.i;
+      if (k < i - 4 && v.getAttribute("src") && !v.src.startsWith("blob:")) { v.removeAttribute("src"); v.load(); delete v.dataset.src; }
+    });
   }
   function play(v) { v.muted = muted; const pr = v.play(); if (pr && pr.catch) pr.catch(() => { v.muted = true; muted = true; paintMute(); v.play().catch(() => {}); }); }
   function setActive(i) {
     if (i === active) return;
     active = i;
     feed.querySelectorAll(".rv-item video").forEach((v, k) => { if (k !== i) { v.pause(); } });
-    [i, i + 1, i - 1].forEach(k => { if (k >= 0 && k < items.length) ensureSrc(k); });
+    preloadAround(i);
     const el = feed.querySelector(`.rv-item[data-i="${i}"]`), v = el && el.querySelector("video");
     if (v) { v.currentTime = 0; if (v.src) play(v); }
     loadMeta(items[i].id);

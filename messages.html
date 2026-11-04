@@ -14,7 +14,7 @@
 <link rel="modulepreload" href="media.js?v=13">
 <link rel="modulepreload" href="files.js?v=13">
 <link rel="modulepreload" href="player-utils.js?v=13">
-<link rel="stylesheet" href="style.css?v=13">
+<link rel="stylesheet" href="style.css?v=14">
 <script src="site-config.js?v=13"></script>
 <script src="theme.js?v=13"></script>
 <script src="icons.js?v=13"></script>
@@ -56,12 +56,14 @@
 
   const fmt = ms => { const d = new Date(ms), t = d.toLocaleTimeString([], { hour: "2-digit", minute: "2-digit" }); return d.toDateString() === new Date().toDateString() ? t : d.toLocaleDateString([], { day: "numeric", month: "short" }) + " " + t; };
 
+  const ago = ms => { if (!ms) return ""; const m = Math.floor((Date.now() - ms) / 60000); if (m < 1) return "now"; if (m < 60) return m + "m"; const h = Math.floor(m / 60); if (h < 24) return h + "h"; const d = Math.floor(h / 24); return d < 7 ? d + "d" : Math.floor(d / 7) + "w"; };
   async function loadList() {
     try { chats = await C.listChats(me.uid); } catch (e) { $("list").innerHTML = `<div class="empty">${esc(C.errText(e))}</div>`; return; }
     const ps = await Promise.all(chats.map(c => C.getProfile(C.otherOf(c, me.uid)).catch(() => null)));
     $("list").innerHTML = chats.length ? chats.map((c, i) => {
       const o = C.otherOf(c, me.uid), p = ps[i] || { name: "Student" };
-      return `<div class="cm-row ${cur && cur.uid === o ? "on" : ""}" data-open="${esc(o)}">${C.avatarHtml(p, "sm")}<div class="grow"><b>${esc(p.name)}</b><small data-keep>${c.lastFrom === me.uid ? "You: " : ""}${esc(c.lastText || "")}</small></div>${C.isUnread(c, me.uid) && !(cur && cur.uid === o) ? '<span class="cm-dot"></span>' : ""}</div>`;
+      const un = C.isUnread(c, me.uid) && !(cur && cur.uid === o);
+      return `<div class="cm-row ${cur && cur.uid === o ? "on" : ""} ${un ? "unread" : ""}" data-open="${esc(o)}">${C.avatarHtml(p, "sm")}<div class="grow"><b>${esc(p.name)}</b><small data-keep>${c.lastFrom === me.uid ? "You: " : ""}${esc(c.lastText || "")}</small></div><span class="cm-time">${ago(c.lastTs)}</span>${un ? '<span class="cm-dot"></span>' : ""}</div>`;
     }).join("") : `<div class="empty">No conversations yet.</div>`;
   }
 
@@ -78,11 +80,11 @@
     $("conv").innerHTML = `
       <div class="cm-conv-head"><button class="btn btn-ghost cm-back" id="back" style="padding:6px 12px">←</button>
         <a href="profile.html?u=${encodeURIComponent(otherUid)}">${C.avatarHtml(prof, "sm")}</a>
-        <div class="grow"><a href="profile.html?u=${encodeURIComponent(otherUid)}"><b>${esc(prof.name)}</b></a></div>
+        <div class="grow"><a href="profile.html?u=${encodeURIComponent(otherUid)}"><b>${esc(prof.name)}</b></a><small>View profile</small></div>
         <div class="cm-menu"><button class="btn btn-ghost" id="menu" style="padding:6px 14px">⋯</button>
           <div class="cm-menu-pop" id="pop"><button id="m-report">🚩 Report</button><button id="m-block">${blocked ? "✅ Unblock" : "🚫 Block"}</button></div></div></div>
       <div class="cm-msgs" id="msgs"><div class="cm-empty">${exists ? "Loading..." : "Say hello 👋 Ask a study doubt or share notes."}</div></div>
-      ${can.ok ? `<div class="cm-pend" id="pend" hidden></div><div class="cm-compose"><button class="btn btn-ghost cm-attach" id="attach" type="button" aria-label="Send a photo, video, PDF, APK or any file" title="Photo, video, PDF, APK or any file">${ic("paperclip")}</button><input type="file" id="file" hidden><textarea id="txt" maxlength="1000" placeholder="Type a message..." rows="1"></textarea><button class="btn btn-gold" id="send">Send</button></div>`
+      ${can.ok ? `<div class="cm-pend" id="pend" hidden></div><div class="cm-compose"><button class="btn btn-ghost cm-attach" id="attach" type="button" aria-label="Send a photo, video, PDF, APK or any file" title="Photo, video, PDF, APK or any file">${ic("paperclip")}</button><input type="file" id="file" hidden><textarea id="txt" maxlength="1000" placeholder="Message..." rows="1"></textarea><button class="btn btn-gold" id="send">Send</button></div>`
                : `<div class="cm-compose"><div class="cm-msg" style="margin:0;flex:1">${esc(can.why || "You cannot message this student.")}</div></div>`}`;
     $("back").addEventListener("click", () => { $("chat").classList.remove("in-conv"); if (unsub) { unsub(); unsub = null; } cur = null; loadList(); });
     $("menu").addEventListener("click", e => { e.stopPropagation(); $("pop").classList.toggle("open"); });
@@ -131,7 +133,7 @@
   }
   function renderPend() {
     const el = $("pend"); if (!el) return;
-    if (!pendFile) { el.hidden = true; el.innerHTML = ""; $("txt").placeholder = "Type a message..."; return; }
+    if (!pendFile) { el.hidden = true; el.innerHTML = ""; $("txt").placeholder = "Message..."; return; }
     const k = F.kindOf(pendFile);
     el.hidden = false;
     el.innerHTML = `<div class="cm-pchip">${ic(k === "image" ? "image" : k === "video" ? "film" : "file")}<span class="grow"><b data-keep>${esc(pendFile.name)}</b><small>${F.fmtSize(pendFile.size)}<span id="pp"></span></small></span><button class="cm-x2" id="pclear" type="button" aria-label="Remove file">✕</button></div><div class="cm-pbar" id="pbar" hidden><i></i></div>`;
