@@ -24,6 +24,9 @@ A static study-materials portal with Firebase Authentication. (The site name can
 - **Student Community** (`community.html`, `profile.html`, `messages.html`): profile with avatar/bio/course, follow & followers, course-wise leaderboard, private profiles with follow requests, hide-my-rank, direct messages with block and report (reports are reviewed in `moderation.html`, admins only)
 - **Chat extras:** unsend and edit your own messages, and send photos, videos, audio, PDFs, APK files, ZIPs and any other document (paperclip button; you can also paste an image)
 - **Posts & reels:** upload a post (photo / video / text) or a reel (video up to 90 seconds) from Profile, edit the caption, delete, like, and see a Feed of the students you follow
+- **Voice & video calls** (v14): call buttons in every chat (WebRTC, media is peer-to-peer). Incoming calls ring on every page while the website is open, with accept / decline, mute, camera on/off and flip camera. A call log ("Voice call · 2:13", "Missed video call", "Call back") is saved in the chat
+- **Messages** is full screen on phones with an Instagram-style header, bubbles and message box
+- **Reels:** live like / comment / repost counters, Instagram-style heart, next 3 reels are preloaded
 - Responsive dark design with no build step
 
 ## Project structure
@@ -302,3 +305,11 @@ Create the document `admins/<your UID>` (field `role` = `admin`) in the Firebase
 - Blocked file types: `.exe .msi .bat .cmd .scr .vbs .ps1 .com .pif` (list `BLOCKED` in `files.js`). APK, PDF, ZIP, Office files, images, videos and audio are allowed. APK files show a "only open if you trust the sender" note.
 - **Unsend** replaces the message with "This message was unsent" for both people and deletes the attached file. **Edit** changes text / caption only and shows "edited".
 - Menu order: the **Profile** tab is now the last item of the left menu.
+
+
+## Voice & video calls (v14)
+1. Publish the updated `firestore.rules` (Firebase Console > Firestore > Rules). It adds the `calls` collection used for call signalling. Without it calls cannot start.
+2. Calls need **HTTPS** (GitHub Pages is fine) and microphone / camera permission in the browser.
+3. Both students must have the website open. A static site cannot send push notifications to a closed browser.
+4. Calls use free Google STUN servers (`iceServers` in `site-config.js`). On some mobile networks with strict NAT a **TURN** server is also needed. Add your TURN details to `iceServers` in `site-config.js` (instructions are in that file).
+5. Messages: a call can only be placed to students who may message you (same privacy / block rules as chat).

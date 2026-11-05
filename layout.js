@@ -1,6 +1,6 @@
 // Gyaan Hub - shared layout: left slide-out menu + privacy/cookie consent popup + site name + preference sync
-import { getPrefs, savePrefs, mergeRemote } from "./prefs.js?v=13";
-import { t, applyI18n } from "./i18n.js?v=13";
+import { getPrefs, savePrefs, mergeRemote } from "./prefs.js?v=14";
+import { t, applyI18n } from "./i18n.js?v=14";
 const KEY = "gyaan_consent";
 const page = location.pathname.split("/").pop() || "index.html";
 const onLegalPage = ["privacy.html", "terms.html"].includes(page);
@@ -83,7 +83,7 @@ function buildMenu() {
     box.innerHTML = `<div class="who-row">${avatarHtml(u)}<div class="who">${t("nav.signedAs")}<br><b>${esc(u.displayName || u.email || "")}</b><small>${esc(u.displayName ? (u.email || "") : "")}</small></div></div><button class="btn btn-ghost btn-block" id="drawer-logout">${t("nav.logout")}</button>`;
     box.querySelector("#drawer-logout").addEventListener("click", a.logout);
   };
-  import("./auth.js?v=13").then(a => a.onUser(u => {
+  import("./auth.js?v=14").then(a => a.onUser(u => {
     if (!u) return signedOut();
     paintUser(u, a);
     window.addEventListener("avatar-changed", () => paintUser(u, a));
@@ -97,11 +97,15 @@ function buildMenu() {
       });
       let tm; window.addEventListener("prefs-saved", e => { clearTimeout(tm); tm = setTimeout(() => a.savePrefsUp(e.detail).catch(() => {}), 800); });
     }
-    if (!a.isDemo()) import("./community.js?v=13").then(async c => {
+    if (!a.isDemo()) import("./community.js?v=14").then(async c => {
       const [unread, reqs] = await Promise.all([c.unreadCount(u.uid), a.fsWhere("follows", [["target", "==", u.uid], ["status", "==", "pending"]]).then(r => r.length).catch(() => 0)]);
       const badge = (href, n) => { const el = n && drawer.querySelector(`.drawer-nav a[href="${href}"]`); if (el && !el.querySelector(".nav-badge")) el.insertAdjacentHTML("beforeend", `<i class="nav-badge">${n > 9 ? "9+" : n}</i>`); };
       badge("messages.html", unread); badge("profile.html", reqs);
+      const tb = (href, n) => { const el = n && document.querySelector(`.tabbar a[href="${href}"]`); if (el && !el.querySelector(".nav-badge")) el.insertAdjacentHTML("beforeend", `<i class="nav-badge">${n > 9 ? "9+" : n}</i>`); };
+      tb("messages.html", unread);
     }).catch(() => {});
+    // incoming voice / video calls ring on every page
+    if (!a.isDemo()) import("./calls.js?v=14").then(m => m.initCalls(u)).catch(() => {});
     a.checkAdmin(u).then(ok => {
       const s = drawer.querySelector('a[href="settings.html"]');
       if (ok && s && !drawer.querySelector('a[href="admin.html"]')) s.insertAdjacentHTML("afterend", `<a href="admin.html" class="${page === "admin.html" ? "active" : ""}"><span>${window.ic("tools")}</span><em data-i18n="nav.admin">${t("nav.admin")}</em></a><a href="moderation.html" class="${page === "moderation.html" ? "active" : ""}"><span>${window.ic("flag")}</span><em>Community reports</em></a>`);
@@ -113,7 +117,7 @@ function buildMenu() {
 function buildTabBar() {
   const skip = ["reels.html", "login.html", "signup.html", "verify.html", "player.html", "privacy.html", "terms.html"];
   if (skip.includes(page) || !document.querySelector(".nav")) return;
-  const tabs = [["index.html", "home", "nav.home"], ["reels.html", "film", "nav.reels"], ["community.html", "users", "nav.community"], ["messages.html", "chat", "nav.messages"], ["profile.html", "user", "nav.profile"]];
+  const tabs = [["index.html", "home", "nav.home"], ["dashboard.html", "library", "nav.dashboard"], ["reels.html", "film", "nav.reels"], ["messages.html", "chat", "nav.messages"], ["profile.html", "user", "nav.profile"]];
   const bar = document.createElement("nav");
   bar.className = "tabbar";
   bar.setAttribute("aria-label", "Quick navigation");
@@ -183,7 +187,7 @@ window.addEventListener("prefs-changed", () => {
   if (d) d.querySelectorAll("[data-i18n]").forEach(el => { el.textContent = t(el.dataset.i18n); });
 });
 // site name / logo / contact: cached copy is applied by theme.js at once, the fresh copy is fetched here
-import("./auth.js?v=13").then(async a => {
+import("./auth.js?v=14").then(async a => {
   const site = await a.loadSite();
   if (!site) return;
   const fresh = { name: site.name || "", logo: site.logo || "", contact: site.contact || "" };

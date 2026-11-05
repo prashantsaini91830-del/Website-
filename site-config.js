@@ -12,5 +12,13 @@ window.SITE_CONFIG = {
   driveApiKey: "",
 
   // Show city/country of each login in "Active devices" (uses https://ipapi.co, see Privacy Policy). Set false to turn off.
-  locationLookup: true
+  locationLookup: true,
+
+  // Voice / video calls (WebRTC). The free Google STUN servers below work on most Wi-Fi networks.
+  // Some mobile networks (strict NAT) need a TURN relay too. To add one, get free credentials from a TURN provider
+  // (for example metered.ca or Twilio) and add it like this:
+  //   { urls: "turn:YOUR_TURN_HOST:443?transport=tcp", username: "USER", credential: "PASSWORD" }
+  iceServers: [
+    { urls: ["stun:stun.l.google.com:19302", "stun:stun1.l.google.com:19302", "stun:stun2.l.google.com:19302"] }
+  ]
 };

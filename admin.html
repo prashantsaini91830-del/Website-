@@ -4,10 +4,10 @@
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1.0">
 <title>Admin Panel | Gyaan Hub</title>
-<link rel="stylesheet" href="style.css?v=13">
-<script src="site-config.js?v=13"></script>
-<script src="theme.js?v=13"></script>
-<script src="icons.js?v=13"></script>
+<link rel="stylesheet" href="style.css?v=14">
+<script src="site-config.js?v=14"></script>
+<script src="theme.js?v=14"></script>
+<script src="icons.js?v=14"></script>
 </head>
 <body>
 <header class="nav">
@@ -115,11 +115,11 @@
 </main>
 
 <script type="module">
-  import { protectPage, adminDiag, fsList, fsRecent, fsSave, fsDelete, fsGroup, toMs, loadSite, saveSite } from "./auth.js?v=13";
-  import { isSafeUrl, normalizeImgUrl } from "./player-utils.js?v=13";
-  import { uploadQuestionImage, hydrate, initLightbox } from "./media.js?v=13";
+  import { protectPage, adminDiag, fsList, fsRecent, fsSave, fsDelete, fsGroup, toMs, loadSite, saveSite } from "./auth.js?v=14";
+  import { isSafeUrl, normalizeImgUrl } from "./player-utils.js?v=14";
+  import { uploadQuestionImage, hydrate, initLightbox } from "./media.js?v=14";
   initLightbox();
-  import { materials as sample } from "./materials.js?v=13";
+  import { materials as sample } from "./materials.js?v=14";
 
   const $ = id => document.getElementById(id);
   const esc = s => String(s ?? "").replace(/[&<>"]/g, c => ({ "&": "&amp;", "<": "&lt;", ">": "&gt;", '"': "&quot;" }[c]));
@@ -376,6 +376,6 @@
     catch (e) { note("Could not load data: " + (e.code || e.message) + ". Check that the Firestore rules are published.", "err"); }
   });
 </script>
-<script type="module" src="layout.js?v=13"></script>
+<script type="module" src="layout.js?v=14"></script>
 </body>
 </html>

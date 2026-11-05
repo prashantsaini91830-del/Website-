@@ -542,3 +542,14 @@ export function fsWatchCol(path, cb, onErr) {
   if (DEMO) return () => {};
   return onSnapshot(collection(getDb(), ...path), s => cb(s.docs.map(x => ({ id: x.id, ...x.data() }))), e => { if (onErr) onErr(e); });
 }
+
+// Live listener on a query (used for incoming calls). Returns an unsubscribe function.
+export function fsWatchWhere(name, conds, cb, onErr) {
+  if (DEMO) return () => {};
+  return onSnapshot(query(collection(getDb(), name), ...conds.map(c => where(c[0], c[1], c[2]))), s => cb(s.docs.map(x => ({ id: x.id, ...x.data() }))), e => { if (onErr) onErr(e); });
+}
+// Live listener on one document. cb gets null when the document does not exist (any more).
+export function fsWatchDoc(path, cb, onErr) {
+  if (DEMO) return () => {};
+  return onSnapshot(doc(getDb(), ...path), s => cb(s.exists() ? { id: s.id, ...s.data() } : null), e => { if (onErr) onErr(e); });
+}

@@ -6,8 +6,8 @@
 //  2) Firestore chunks  (automatic fallback if Storage is not available): the file is cut into ~600 KB pieces and saved
 //     as database documents. Works on the free plan, but only for files up to MAX_FALLBACK_MB.
 // The same Firebase project / keys as the rest of the site are used. Nothing new to configure in the code.
-import { getFbApp, fsSetPath, fsGetPath, fsDeletePath, currentUser } from "./auth.js?v=13";
-import { compressImage } from "./media.js?v=13";
+import { getFbApp, fsSetPath, fsGetPath, fsDeletePath, currentUser } from "./auth.js?v=14";
+import { compressImage } from "./media.js?v=14";
 
 export const MAX_STORAGE_MB = 50;      // per file, when Firebase Storage works
 export const MAX_FALLBACK_MB = 10;     // per file, when files are saved in the database

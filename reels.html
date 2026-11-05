@@ -9,13 +9,13 @@
 <link rel="modulepreload" href="https://www.gstatic.com/firebasejs/10.14.1/firebase-app.js">
 <link rel="modulepreload" href="https://www.gstatic.com/firebasejs/10.14.1/firebase-auth.js">
 <link rel="modulepreload" href="https://www.gstatic.com/firebasejs/10.14.1/firebase-firestore.js">
-<link rel="modulepreload" href="auth.js?v=13">
-<link rel="modulepreload" href="community.js?v=13">
-<link rel="modulepreload" href="files.js?v=13">
+<link rel="modulepreload" href="auth.js?v=14">
+<link rel="modulepreload" href="community.js?v=14">
+<link rel="modulepreload" href="files.js?v=14">
 <link rel="stylesheet" href="style.css?v=14">
-<script src="site-config.js?v=13"></script>
-<script src="theme.js?v=13"></script>
-<script src="icons.js?v=13"></script>
+<script src="site-config.js?v=14"></script>
+<script src="theme.js?v=14"></script>
+<script src="icons.js?v=14"></script>
 <style>
   html,body{height:100%;overflow:hidden;background:#000}
   body{background-image:none}
@@ -29,7 +29,7 @@
   .rv-state{position:absolute;left:50%;top:50%;z-index:2;width:76px;height:76px;margin:-38px 0 0 -38px;border-radius:50%;background:rgba(0,0,0,.5);display:grid;place-items:center;color:#fff;opacity:0;transform:scale(.7);pointer-events:none;transition:.25s}
   .rv-state.show{opacity:1;transform:scale(1)}
   .rv-state .vi svg{width:34px;height:34px;fill:#fff}
-  .rv-heart{position:absolute;z-index:3;width:90px;height:90px;margin:-45px 0 0 -45px;pointer-events:none;color:#ff5e7a;animation:rvHeart .8s ease-out forwards}
+  .rv-heart{position:absolute;z-index:3;width:90px;height:90px;margin:-45px 0 0 -45px;pointer-events:none;color:#ff3040;filter:drop-shadow(0 4px 14px rgba(0,0,0,.4));animation:rvHeart .8s ease-out forwards}
   .rv-heart .vi svg{width:90px;height:90px;fill:currentColor;stroke:currentColor}
   @keyframes rvHeart{0%{transform:scale(.3);opacity:0}25%{transform:scale(1.15);opacity:1}100%{transform:scale(1) translateY(-40px);opacity:0}}
   .rv-spin{position:absolute;left:50%;top:50%;width:34px;height:34px;margin:-17px 0 0 -17px;border:3px solid rgba(255,255,255,.25);border-top-color:#fff;border-radius:50%;animation:rvSpin .8s linear infinite;z-index:1;pointer-events:none}
@@ -46,12 +46,17 @@
   .rv-seg button.on{background:#fff;color:#111}
   /* right action rail */
   .rv-rail{position:absolute;right:8px;bottom:calc(86px + env(safe-area-inset-bottom));z-index:5;display:flex;flex-direction:column;align-items:center;gap:18px}
-  .rv-btn{display:flex;flex-direction:column;align-items:center;gap:3px;background:none;border:0;color:#fff;font:inherit;font-size:.78rem;font-weight:600;cursor:pointer;text-shadow:0 1px 4px rgba(0,0,0,.7);-webkit-tap-highlight-color:transparent}
-  .rv-btn .vi svg{width:30px;height:30px;filter:drop-shadow(0 1px 4px rgba(0,0,0,.6));transition:transform .2s}
-  .rv-btn:active .vi svg{transform:scale(.85)}
-  .rv-btn.on.like{color:#ff5e7a}
-  .rv-btn.on .vi svg{fill:currentColor}
-  .rv-btn.on:not(.like){color:var(--gold2)}
+  .rv-btn{display:flex;flex-direction:column;align-items:center;gap:4px;min-width:48px;padding:2px 0;background:none;border:0;color:#fff;font:inherit;font-size:.8rem;font-weight:700;cursor:pointer;text-shadow:0 1px 4px rgba(0,0,0,.75);-webkit-tap-highlight-color:transparent;touch-action:manipulation}
+  .rv-btn .vi{width:34px;height:34px}
+  .rv-btn .vi svg{width:34px;height:34px;stroke-width:1.9;filter:drop-shadow(0 1px 4px rgba(0,0,0,.65));transition:transform .15s}
+  .rv-btn:active .vi svg{transform:scale(.8)}
+  .rv-btn.like .vi svg{width:36px;height:36px}
+  .rv-btn.like.on{color:#fff}
+  .rv-btn.like.on .vi svg{fill:#ff3040;stroke:#ff3040;animation:rvPop .38s cubic-bezier(.2,1.6,.4,1)}
+  .rv-btn.on:not(.like){color:#fff}
+  .rv-btn.on:not(.like) .vi svg{fill:#fff}
+  .rv-btn span[data-n]{min-width:1ch;line-height:1}
+  @keyframes rvPop{0%{transform:scale(.55)}55%{transform:scale(1.38)}100%{transform:scale(1)}}
   /* bottom info */
   .rv-info{position:absolute;left:0;right:76px;bottom:calc(18px + env(safe-area-inset-bottom));z-index:5;padding:0 14px;color:#fff;text-shadow:0 1px 6px rgba(0,0,0,.7)}
   .rv-by{display:flex;align-items:center;gap:10px;margin-bottom:10px}
@@ -100,8 +105,8 @@
 </div>
 
 <script type="module">
-  import { protectPage } from "./auth.js?v=13";
-  import * as C from "./community.js?v=13";
+  import { protectPage } from "./auth.js?v=14";
+  import * as C from "./community.js?v=14";
   const $ = id => document.getElementById(id);
   const { esc } = C;
   const ic = (n, c) => window.ic ? window.ic(n, c) : "";
@@ -179,6 +184,7 @@
     document.querySelectorAll("#seg button").forEach(b => b.classList.toggle("on", b.dataset.s === seg));
     feed.innerHTML = `<div class="rv-msg"><div class="skel" style="width:60px;height:60px;border-radius:50%"></div><p>Loading reels…</p></div>`;
     active = -1;
+    Object.keys(subs).forEach(id => { subs[id].forEach(u => { try { u(); } catch (e) {} }); delete subs[id]; });
     let rows = [];
     try { rows = await fetchReels(seg); } catch (e) { feed.innerHTML = `<div class="rv-msg"><h2>Could not load reels</h2><p>${esc(C.errText(e))}</p></div>`; return; }
     const want = params.get("reel");
@@ -197,7 +203,7 @@
     feed.innerHTML = rows.map((r, i) => itemHtml(r, am[r.uid] || { name: "Student" }, i)).join("");
     feed.scrollTop = 0;
     active = -1;
-    for (let k = 0; k <= AHEAD; k++) ensureSrc(k);          // first reel + next 3 start loading right now
+    for (let k = 0; k <= AHEAD; k++) { ensureSrc(k); if (items[k]) watchMeta(items[k].id); }   // first reel + next 3 start loading right now
     watcher.disconnect();
     feed.querySelectorAll(".rv-item").forEach(el => watcher.observe(el));
   }
@@ -243,29 +249,38 @@
     preloadAround(i);
     const el = feed.querySelector(`.rv-item[data-i="${i}"]`), v = el && el.querySelector("video");
     if (v) { v.currentTime = 0; if (v.src) play(v); }
-    loadMeta(items[i].id);
+    watchAround(i);
     // keep the address in sync so the link can be shared / reloaded
     try { const u = new URL(location.href); u.searchParams.set("reel", items[i].id); history.replaceState(null, "", u); } catch (e) {}
   }
   const watcher = new IntersectionObserver(es => es.forEach(en => { if (en.isIntersecting && en.intersectionRatio >= .7) setActive(+en.target.dataset.i); }), { root: feed, threshold: [.7] });
   document.addEventListener("visibilitychange", () => { const v = feed.querySelector(`.rv-item[data-i="${active}"] video`); if (!v) return; if (document.hidden) v.pause(); else play(v); });
 
-  /* ---------- per-reel numbers (loaded when the reel becomes active) ---------- */
-  async function loadMeta(id) {
-    if (!meta[id]) {
-      meta[id] = { likes: [], cm: [], rp: [], ready: false };
-      const p = items.find(x => x.id === id);
-      const [likes, cm, rp] = await Promise.all([C.likesOf(id), C.commentsOf(id), C.repostsOf(p.repostOf || id)]);
-      Object.assign(meta[id], { likes, cm, rp, ready: true });
-    }
-    paintMeta(id);
+  /* ---------- per-reel numbers: live listeners (likes / comments / reposts update by themselves) ---------- */
+  const fmtN = n => n >= 1e6 ? (n / 1e6).toFixed(1).replace(/\.0$/, "") + "M" : n >= 1e3 ? (n / 1e3).toFixed(1).replace(/\.0$/, "") + "K" : String(n);
+  const subs = {};           // postId -> [unsubscribe, ...]
+  let warned = false;
+  function watchMeta(id) {
+    if (subs[id]) return;
+    const p = items.find(x => x.id === id); if (!p) return;
+    const m = meta[id] || (meta[id] = { likes: [], cm: [], rp: [] });
+    const fail = e => { if (!warned) { warned = true; C.toast(C.errText(e), 4500); } };
+    subs[id] = [
+      C.A.fsWatchCol(["posts", id, "likes"], rows => { m.likes = rows.map(x => x.id); paintMeta(id); }, fail),
+      C.A.fsWatchCol(["posts", id, "comments"], rows => { m.cm = rows.sort((a, b) => (a.ts || 0) - (b.ts || 0)); paintMeta(id); if (sheetId === id) drawComments(); }, fail),
+      C.A.fsWatchCol(["posts", p.repostOf || id, "reposts"], rows => { m.rp = rows.map(x => x.id); paintMeta(id); }, fail)
+    ];
+  }
+  function watchAround(i) {
+    for (let k = i - 1; k <= i + AHEAD; k++) if (items[k]) watchMeta(items[k].id);
+    Object.keys(subs).forEach(id => { const k = items.findIndex(x => x.id === id); if (k < 0 || Math.abs(k - i) > AHEAD + 2) { subs[id].forEach(u => { try { u(); } catch (e) {} }); delete subs[id]; } });
   }
   function paintMeta(id) {
     const el = feed.querySelector(`.rv-item[data-id="${CSS.escape(id)}"]`), m = meta[id]; if (!el || !m) return;
     el.querySelector('[data-act="like"]').classList.toggle("on", m.likes.includes(me.uid));
-    el.querySelector('[data-n="like"]').textContent = m.likes.length;
-    el.querySelector('[data-n="cm"]').textContent = m.cm.length;
-    el.querySelector('[data-n="rp"]').textContent = m.rp.length;
+    el.querySelector('[data-n="like"]').textContent = fmtN(m.likes.length);
+    el.querySelector('[data-n="cm"]').textContent = fmtN(m.cm.length);
+    el.querySelector('[data-n="rp"]').textContent = fmtN(m.rp.length);
     el.querySelector('[data-act="repost"]').classList.toggle("on", m.rp.includes(me.uid));
     el.querySelector('[data-act="save"]').classList.toggle("on", savedSet.has(id));
   }
@@ -273,12 +288,14 @@
   /* ---------- actions ---------- */
   const curItem = el => el.closest(".rv-item");
   async function toggleLike(id) {
-    const m = meta[id] || (meta[id] = { likes: [], cm: [], rp: [] }), had = m.likes.includes(me.uid);
+    watchMeta(id);
+    const m = meta[id], had = m.likes.includes(me.uid);
     m.likes = had ? m.likes.filter(u => u !== me.uid) : [...m.likes, me.uid]; paintMeta(id);          // instant feedback
     try { await (had ? C.unlikePost(id, me.uid) : C.likePost(id, me.uid)); }
     catch (e) { m.likes = had ? [...m.likes, me.uid] : m.likes.filter(u => u !== me.uid); paintMeta(id); C.toast(C.errText(e), 3500); }
   }
   async function toggleRepost(id) {
+    watchMeta(id);
     const p = items.find(x => x.id === id), m = meta[id];
     if (p.uid === me.uid && !p.repostOf) return C.toast("You cannot repost your own reel.", 2500);
     try {
@@ -313,7 +330,7 @@
     const el = curItem(b), id = el.dataset.id, act = b.dataset.act;
     if (act === "tap") {
       const now = Date.now();
-      if (now - lastTap < 300) { clearTimeout(tapT); lastTap = 0; burst(el, e.clientX, e.clientY); if (!(meta[id] && meta[id].likes.includes(me.uid))) toggleLike(id); return; }
+      if (now - lastTap < 300) { clearTimeout(tapT); lastTap = 0; burst(el, e.clientX, e.clientY); watchMeta(id); if (!(meta[id] && meta[id].likes.includes(me.uid))) toggleLike(id); return; }
       lastTap = now;
       tapT = setTimeout(() => { const v = el.querySelector("video"); if (v.paused) { play(v); flash(el, iPlay); } else { v.pause(); flash(el, iPause); } }, 300);
     }
@@ -341,8 +358,8 @@
     list.innerHTML = m.cm.map(c => `<div class="rl-c"><a href="profile.html?u=${encodeURIComponent(c.uid)}">${C.avatarHtml(pm[c.uid] || { name: "Student" }, "sm")}</a><div class="grow"><b data-keep>${esc((pm[c.uid] || {}).name || "Student")}</b> <span data-keep>${esc(c.text)}</span></div>${c.uid === me.uid || p.uid === me.uid ? `<button class="cm-x2" data-cdel="${esc(c.id)}" aria-label="Delete comment">✕</button>` : ""}</div>`).join("");
     list.scrollTop = list.scrollHeight;
   }
-  async function openSheet(id) {
-    sheetId = id; await loadMeta(id);
+  function openSheet(id) {
+    sheetId = id; watchMeta(id);
     $("sbg").classList.add("open"); $("sheet").classList.add("open"); drawComments();
   }
   const closeSheet = () => { $("sbg").classList.remove("open"); $("sheet").classList.remove("open"); sheetId = null; };
@@ -363,6 +380,7 @@
 
   protectPage(async u => {
     me = u;
+    import("./calls.js?v=14").then(m => m.initCalls(u)).catch(() => {});
     await loadFollowing();
     build("explore");
   });

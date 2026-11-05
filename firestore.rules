@@ -164,6 +164,39 @@ service cloud.firestore {
         allow delete: if signedIn() && resource.data.by == request.auth.uid;
       }
     }
+    // ---- voice & video calls (WebRTC signalling; the media itself never touches Firebase) ----
+    match /calls/{callId} {
+      function callOk(to, from) {
+        return !exists(profilePath(to))
+            || get(profilePath(to)).data.get("dm", "followers") == "all"
+            || (get(profilePath(to)).data.get("dm", "followers") == "followers" && doesFollow(to, from));
+      }
+      // written as caller/callee checks (not "in participants") so that "where callee == me" queries are allowed
+      allow read: if signedIn() && (resource == null
+          || resource.data.caller == request.auth.uid || resource.data.callee == request.auth.uid);
+      allow create: if signedIn()
+          && request.resource.data.caller == request.auth.uid
+          && request.resource.data.callee is string && request.resource.data.callee != request.auth.uid
+          && request.resource.data.participants.size() == 2
+          && request.auth.uid in request.resource.data.participants
+          && request.resource.data.callee in request.resource.data.participants
+          && request.resource.data.type in ["audio", "video"]
+          && !blockedEither(request.resource.data.participants)
+          && callOk(request.resource.data.callee, request.auth.uid);
+      allow update: if signedIn()
+          && (resource.data.caller == request.auth.uid || resource.data.callee == request.auth.uid)
+          && request.resource.data.caller == resource.data.caller
+          && request.resource.data.callee == resource.data.callee;
+      allow delete: if signedIn() && (resource.data.caller == request.auth.uid || resource.data.callee == request.auth.uid);
+      match /callerCandidates/{id} {
+        allow read, write: if signedIn() && (get(/databases/$(database)/documents/calls/$(callId)).data.caller == request.auth.uid
+            || get(/databases/$(database)/documents/calls/$(callId)).data.callee == request.auth.uid);
+      }
+      match /calleeCandidates/{id} {
+        allow read, write: if signedIn() && (get(/databases/$(database)/documents/calls/$(callId)).data.caller == request.auth.uid
+            || get(/databases/$(database)/documents/calls/$(callId)).data.callee == request.auth.uid);
+      }
+    }
     // ---- posts & reels ----
     match /posts/{pid} {
       allow read: if signedIn() && (resource == null

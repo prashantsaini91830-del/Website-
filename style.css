@@ -730,9 +730,6 @@ a.rl-tile{display:block}
 .cm-compose{align-items:center;gap:8px;margin:10px 14px 14px;padding:6px 6px 6px 8px;border:1px solid var(--border);border-radius:999px;background:var(--card)}
 .cm-compose textarea{border:0;background:transparent!important;height:40px;padding:10px 6px;border-radius:0;box-shadow:none}
 .cm-compose textarea:focus{border:0}
-.cm-compose .cm-attach{height:40px;width:40px;padding:0;border-radius:50%;background:transparent;border:0}
-.cm-compose #send{border-radius:999px;padding:9px 20px;background:linear-gradient(135deg,#7a5cff,#3897f0);color:#fff;border:0;font-weight:700}
-.cm-compose #send:disabled{opacity:.5}
 .cm-pend{border-top:0;padding:8px 14px 0}
 .cm-empty{font-size:.95rem}
 html.light .cm-bubble{background:#efefef;color:#111}
@@ -742,4 +739,159 @@ html.light .cm-compose textarea{background:transparent!important}
   .cm-chat{border-radius:0;border-left:0;border-right:0;height:calc(100dvh - 130px)}
   .cm-bubble{max-width:82%}
   .cm-side{border-right:0}
+}
+
+
+/* ===================================================================
+   v14: Instagram-style chat (full screen on phones), calls, reels, mobile polish
+   =================================================================== */
+.ig-hb{width:42px;height:42px;border-radius:50%;border:0;background:transparent;color:var(--text);display:grid;place-items:center;cursor:pointer;flex:none;-webkit-tap-highlight-color:transparent;transition:background .15s}
+.ig-hb:hover{background:var(--card)}
+.ig-hb .vi{width:24px;height:24px}
+.ig-hb .vi svg{stroke-width:2}
+.ig-hb.cm-back{display:none}
+.ig-lhead{display:flex;align-items:center;gap:4px;padding:10px 10px 2px}
+.ig-lhead h2{flex:1;font-size:1.3rem;font-weight:800;margin:0;letter-spacing:-.01em}
+.ig-lhead .ig-hb:first-child{display:none}
+.ig-lsearch{padding:6px 12px 8px}
+.ig-lsearch .cm-search{border-radius:999px;background:var(--card);border:0;padding:11px 18px;font-size:.95rem}
+.cm-conv-head.ig-head{padding:8px 6px 8px 4px;gap:4px;min-height:62px}
+.ig-ava{display:block;margin:0 6px 0 2px}
+.ig-ava .avatar{width:42px;height:42px}
+.ig-who{display:block;min-width:0}
+.ig-who b{display:block;font-size:1rem;line-height:1.2;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
+.ig-who small{display:block;color:var(--muted);font-size:.74rem;line-height:1.2}
+.cm-conv-head .cm-menu-pop{right:0}
+
+/* message rows: Instagram grouping, small avatar on the last bubble of a group */
+.cm-msgs{gap:2px;padding:14px 12px 8px;overscroll-behavior:contain;-webkit-overflow-scrolling:touch}
+.cm-sep{align-self:center;color:var(--muted);font-size:.74rem;margin:14px 0 8px;text-align:center}
+.cm-r{display:flex;align-items:flex-end;gap:8px}
+.cm-r.mine{justify-content:flex-end}
+.cm-r.single,.cm-r.first{margin-top:8px}
+.cm-r-av{width:28px;flex:none}
+.cm-r-av .avatar{width:28px;height:28px;font-size:.75rem}
+.cm-r .cm-bubble,.cm-r .cm-bubble.mine{align-self:auto;max-width:min(78%,520px);border-radius:22px;margin-top:0}
+.cm-r.mine.first .cm-bubble{border-bottom-right-radius:6px}
+.cm-r.mine.mid .cm-bubble{border-top-right-radius:6px;border-bottom-right-radius:6px}
+.cm-r.mine.last .cm-bubble{border-top-right-radius:6px}
+.cm-r.theirs.first .cm-bubble{border-bottom-left-radius:6px}
+.cm-r.theirs.mid .cm-bubble{border-top-left-radius:6px;border-bottom-left-radius:6px}
+.cm-r.theirs.last .cm-bubble{border-top-left-radius:6px}
+.cm-bubble small{display:none}
+.cm-bubble.showt small{display:block}
+.cm-bubble.media,.cm-bubble.media.mine{background:transparent;padding:0}
+.cm-bubble.media .cm-img,.cm-bubble.media .cm-vid{border-radius:20px}
+.cm-bubble.media small{padding:2px 6px;color:var(--muted)}
+.cm-bubble.unsent{padding:8px 14px}
+.cm-r.is-call{justify-content:center;margin:8px 0}
+.cm-call{display:flex;align-items:center;gap:12px;width:min(340px,92%);padding:10px 12px;border-radius:18px;background:var(--card);border:1px solid var(--border)}
+.cm-call-ic{width:42px;height:42px;border-radius:50%;display:grid;place-items:center;flex:none;color:#fff;background:linear-gradient(135deg,#7a5cff,#3897f0)}
+.cm-call-ic .vi{width:20px;height:20px}
+.cm-call.missed .cm-call-ic{background:#ff3040}
+.cm-call .grow{min-width:0}
+.cm-call .grow b{display:block;font-size:.92rem}
+.cm-call .grow small{color:var(--muted);font-size:.72rem}
+.cm-call-back{border:1px solid var(--border);background:transparent;color:var(--text);border-radius:999px;padding:7px 14px;font:inherit;font-size:.8rem;font-weight:700;cursor:pointer;flex:none}
+.cm-call-back:hover{background:var(--card)}
+
+/* Instagram composer */
+.cm-compose.ig{display:flex;align-items:flex-end;gap:6px;margin:8px 10px calc(10px + env(safe-area-inset-bottom));padding:5px;border:1px solid var(--border);border-radius:28px;background:var(--card)}
+.cm-compose.ig .ig-cam{width:40px;height:40px;border-radius:50%;border:0;flex:none;display:grid;place-items:center;color:#fff;background:linear-gradient(135deg,#7a5cff,#3897f0);cursor:pointer;-webkit-tap-highlight-color:transparent}
+.cm-compose.ig .ig-cam .vi{width:21px;height:21px}
+.cm-compose.ig textarea{flex:1;min-width:0;align-self:center;height:40px;max-height:120px;border:0;background:transparent!important;box-shadow:none;padding:9px 4px;resize:none;font-size:1rem;line-height:1.35;outline:none;border-radius:0}
+.cm-compose.ig textarea:focus{border:0;box-shadow:none}
+.ig-tools{display:flex;align-self:center}
+.ig-ico{width:38px;height:38px;border:0;background:transparent;color:var(--text);display:grid;place-items:center;border-radius:50%;cursor:pointer;-webkit-tap-highlight-color:transparent}
+.ig-ico .vi{width:22px;height:22px}
+.ig-ico:hover{background:rgba(127,127,127,.15)}
+.ig-send{display:none;border:0;background:transparent;color:#3897f0;font:inherit;font-weight:800;font-size:1rem;padding:0 14px;height:40px;cursor:pointer;align-self:center}
+.ig-send:disabled{opacity:.45}
+.cm-compose.ig.has-text .ig-tools{display:none}
+.cm-compose.ig.has-text .ig-send{display:block}
+.cm-pend{padding:8px 12px 0;border-top:0}
+html.light .cm-compose.ig{background:#f2f2f5}
+html.light .cm-call{background:#f6f6f8}
+
+/* ---- phones: Messages is a full-screen app, like Instagram ---- */
+@media(max-width:860px){
+  body.msg-page{overflow:hidden}
+  body.msg-page .nav,body.msg-page .msg-title{display:none}
+  body.msg-page .cm-wrap{padding:0}
+  body.msg-page .cm-wrap .container{padding:0;max-width:none;width:100%}
+  body.msg-page.has-tabbar{padding-bottom:0}
+  body.msg-page .cm-chat{position:fixed;left:0;right:0;top:0;bottom:calc(64px + env(safe-area-inset-bottom));height:auto;min-height:0;border:0;border-radius:0;z-index:20;grid-template-columns:1fr;background:var(--bg)}
+  body.msg-page .cm-chat.in-conv{bottom:0;z-index:75}
+  body.msg-page .cm-side,body.msg-page .cm-conv{height:100%;min-height:0}
+  body.msg-page.msg-in-conv .tabbar{display:none}
+  body.msg-page .cm-side .cm-list#list{flex:1;min-height:0;padding:0 6px}
+  .ig-lhead{padding-top:calc(10px + env(safe-area-inset-top))}
+  .ig-lhead .ig-hb:first-child{display:grid}
+  .cm-conv-head.ig-head{padding-top:calc(8px + env(safe-area-inset-top))}
+  .ig-hb.cm-back{display:grid}
+  .cm-r .cm-bubble,.cm-r .cm-bubble.mine{max-width:82%}
+  .cm-bubble .cm-bm{display:none}
+  .cm-r.mine .cm-bubble .cm-bm{display:grid}
+}
+
+/* ---- calls ---- */
+.call-ui{position:fixed;inset:0;z-index:1000;background:radial-gradient(120% 90% at 50% 0%,#2b2f6e 0%,#0b1130 55%,#05071a 100%);color:#fff;display:flex;flex-direction:column;align-items:center;justify-content:space-between;padding:calc(48px + env(safe-area-inset-top)) 20px calc(34px + env(safe-area-inset-bottom));overflow:hidden;animation:callIn .25s ease}
+.call-ui[hidden]{display:none}
+@keyframes callIn{from{opacity:0;transform:scale(1.03)}to{opacity:1;transform:none}}
+.call-remote{position:absolute;inset:0;width:100%;height:100%;object-fit:cover;background:#000;opacity:0;pointer-events:none}
+.call-ui.has-remote-video .call-remote{opacity:1}
+.call-shade{position:absolute;inset:0;pointer-events:none;opacity:0;background:linear-gradient(180deg,rgba(0,0,0,.55),transparent 28%,transparent 62%,rgba(0,0,0,.7))}
+.call-ui.has-remote-video .call-shade{opacity:1}
+.call-local{position:absolute;right:14px;top:calc(14px + env(safe-area-inset-top));width:104px;height:150px;object-fit:cover;border-radius:16px;border:2px solid rgba(255,255,255,.7);background:#111;z-index:3;transform:scaleX(-1);box-shadow:0 8px 28px rgba(0,0,0,.5);display:none}
+.call-ui.video.live .call-local,.call-ui.video.outgoing .call-local{display:block}
+.call-center{position:relative;z-index:2;text-align:center;margin-top:7vh}
+.call-ui.has-remote-video .call-center{margin-top:0;align-self:flex-start;text-align:left}
+.call-ui.has-remote-video .call-ava{display:none}
+.call-ava .avatar{width:132px;height:132px;font-size:3rem;border:3px solid rgba(255,255,255,.25)}
+.call-ui.incoming .call-ava .avatar,.call-ui.outgoing .call-ava .avatar{animation:callPulse 1.8s ease-out infinite}
+@keyframes callPulse{0%{box-shadow:0 0 0 0 rgba(122,92,255,.55)}100%{box-shadow:0 0 0 38px rgba(122,92,255,0)}}
+.call-name{font-size:1.6rem;font-weight:800;margin-top:18px}
+.call-status{margin-top:6px;opacity:.85;font-size:1rem;font-variant-numeric:tabular-nums}
+.call-bar,.call-in{position:relative;z-index:3;display:none;gap:20px;align-items:flex-start;justify-content:center}
+.call-ui.live .call-bar,.call-ui.outgoing .call-bar{display:flex}
+.call-ui.incoming .call-in{display:flex;gap:70px}
+.call-bar button,.call-in button{display:flex;flex-direction:column;align-items:center;gap:7px;background:none;border:0;color:#fff;cursor:pointer;font:inherit;-webkit-tap-highlight-color:transparent}
+.cb-i{width:62px;height:62px;border-radius:50%;background:rgba(255,255,255,.16);backdrop-filter:blur(8px);display:grid;place-items:center;transition:.15s}
+.cb-i .vi{width:26px;height:26px}
+.call-in .cb-i{width:72px;height:72px}
+.call-bar button em,.call-in button em{font-style:normal;font-size:.76rem;opacity:.85}
+.call-bar button.off .cb-i{background:#fff;color:#111}
+.call-bar .end .cb-i,.call-in .end .cb-i{background:#ff3040}
+.call-in .ok .cb-i{background:#2ecc71}
+.end .cb-i .vi{transform:rotate(135deg)}
+.call-ui.audio [data-c="cam"],.call-ui.audio [data-c="flip"]{display:none}
+.call-ui.incoming .call-bar{display:none}
+
+/* ---- bottom tab bar (phones) ---- */
+@media(max-width:860px){
+  .tabbar{padding-top:4px}
+  .tabbar a{position:relative;font-size:.62rem;gap:1px}
+  .tabbar a .vi svg{width:25px;height:25px}
+  .tabbar a.active{color:var(--text)}
+  .tabbar a.active .vi svg{stroke-width:2.4}
+  .tabbar .nav-badge{position:absolute;top:0;left:calc(50% + 4px);margin:0;min-width:17px;height:17px;padding:0 5px;font-size:.62rem;line-height:17px;background:#ff3040;color:#fff}
+}
+html.light .tabbar{background:rgba(255,255,255,.94)}
+
+/* ---- general phone polish ---- */
+html{-webkit-text-size-adjust:100%}
+a,button{-webkit-tap-highlight-color:transparent}
+@media(max-width:640px){
+  input,select,textarea{font-size:16px}
+  .btn{min-height:44px}
+  .nav .container{padding-top:8px;padding-bottom:8px}
+  .hero{padding-top:44px}
+  .hero h1{font-size:clamp(2rem,9vw,2.7rem);line-height:1.15}
+  .card,.panel,.kpi{border-radius:18px}
+  .card{padding:20px}
+  .auth-card{padding:30px 20px;border-radius:24px}
+  .cm-wrap{padding:18px 0 40px}
+  .toolbar{gap:8px}
+  .chip{padding:8px 14px}
+  .cm-toast{bottom:calc(84px + env(safe-area-inset-bottom));max-width:92vw}
 }
